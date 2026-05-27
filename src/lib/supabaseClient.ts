@@ -6,10 +6,13 @@ type SupabaseClientConfig = {
 };
 
 export function getSupabaseConfig(): SupabaseClientConfig | null {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
 
   if (!url || !anonKey) {
+    if (typeof window !== "undefined") {
+      console.warn("Supabase not initialized: missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY.");
+    }
     return null;
   }
 
@@ -19,10 +22,12 @@ export function getSupabaseConfig(): SupabaseClientConfig | null {
 const supabaseConfig = getSupabaseConfig();
 
 export const supabaseClient = supabaseConfig
-  ? createClient(supabaseConfig.url, supabaseConfig.anonKey, {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false
-      }
-    })
+  ? createClient(supabaseConfig.url, supabaseConfig.anonKey)
   : null;
+
+if (typeof window !== "undefined" && supabaseConfig) {
+  console.info("Supabase initialized", {
+    url: supabaseConfig.url,
+    anonKeyPrefix: `${supabaseConfig.anonKey.slice(0, 8)}...`
+  });
+}

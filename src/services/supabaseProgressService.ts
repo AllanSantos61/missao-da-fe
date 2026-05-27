@@ -7,6 +7,20 @@ type DailyResultRow = {
   xp_earned: number;
 };
 
+const challengeTypeMap: Record<ChallengeId, string> = {
+  gospel: "evangelho",
+  quiz: "quiz",
+  word: "palavra"
+};
+
+function logSupabase(message: string, details?: unknown) {
+  console.info(`[Supabase] ${message}`, details ?? "");
+}
+
+function logSupabaseError(message: string, error: unknown) {
+  console.error(`[Supabase] ${message}`, error);
+}
+
 function getWeekStartKey(date = new Date()) {
   const weekStart = new Date(date);
   const day = weekStart.getDay();
@@ -27,22 +41,31 @@ async function upsertDailyResult(
 ) {
   if (!supabaseClient) return;
 
+  const challengeType = challengeTypeMap[challengeId];
+  logSupabase("Saving challenge result", {
+    playerName,
+    challengeDate,
+    challengeType,
+    xpEarned: result.xpEarned
+  });
+
   const existingResult = await supabaseClient
     .from("daily_results")
     .select("id")
     .eq("player_name", playerName)
     .eq("challenge_date", challengeDate)
-    .eq("challenge_type", challengeId)
+    .eq("challenge_type", challengeType)
     .maybeSingle();
 
   if (existingResult.error) {
+    logSupabaseError("Select daily result failed", existingResult.error);
     throw existingResult.error;
   }
 
   const payload = {
     player_name: playerName,
     challenge_date: challengeDate,
-    challenge_type: challengeId,
+    challenge_type: challengeType,
     xp_earned: result.xpEarned,
     completed: true,
     completed_at: result.completedAt
@@ -53,16 +76,30 @@ async function upsertDailyResult(
       .from("daily_results")
       .update(payload)
       .eq("id", existingResult.data.id);
-    if (error) throw error;
+    if (error) {
+      logSupabaseError("Update daily result failed", error);
+      throw error;
+    }
+    logSupabase("Insert success", { table: "daily_results", mode: "update" });
     return;
   }
 
   const { error } = await supabaseClient.from("daily_results").insert(payload);
-  if (error) throw error;
+  if (error) {
+    logSupabaseError("Insert failed", error);
+    throw error;
+  }
+  logSupabase("Insert success", { table: "daily_results", mode: "insert" });
 }
 
 export async function syncProgress(progress: UserProgress) {
   if (!supabaseClient || !progress.playerName) return;
+
+  logSupabase("Syncing profile", {
+    playerName: progress.playerName,
+    totalXP: progress.totalXP,
+    weeklyXP: progress.weeklyXP
+  });
 
   const existingProfile = await supabaseClient
     .from("profiles")
@@ -71,6 +108,7 @@ export async function syncProgress(progress: UserProgress) {
     .maybeSingle();
 
   if (existingProfile.error) {
+    logSupabaseError("Select profile failed", existingProfile.error);
     throw existingProfile.error;
   }
 
@@ -84,10 +122,18 @@ export async function syncProgress(progress: UserProgress) {
 
   if (existingProfile.data?.id) {
     const { error } = await supabaseClient.from("profiles").update(payload).eq("id", existingProfile.data.id);
-    if (error) throw error;
+    if (error) {
+      logSupabaseError("Update profile failed", error);
+      throw error;
+    }
+    logSupabase("Insert success", { table: "profiles", mode: "update" });
   } else {
     const { error } = await supabaseClient.from("profiles").insert(payload);
-    if (error) throw error;
+    if (error) {
+      logSupabaseError("Insert failed", error);
+      throw error;
+    }
+    logSupabase("Insert success", { table: "profiles", mode: "insert" });
   }
 
   for (const day of Object.values(progress.dailyHistory)) {
@@ -102,6 +148,11 @@ export async function syncProgress(progress: UserProgress) {
 export async function updateWeeklyXP(progress: UserProgress) {
   if (!supabaseClient || !progress.playerName) return;
 
+  logSupabase("Updating weekly XP", {
+    playerName: progress.playerName,
+    weeklyXP: progress.weeklyXP
+  });
+
   const { error } = await supabaseClient
     .from("profiles")
     .update({
@@ -112,7 +163,11 @@ export async function updateWeeklyXP(progress: UserProgress) {
     })
     .eq("player_name", progress.playerName);
 
-  if (error) throw error;
+  if (error) {
+    logSupabaseError("Update weekly XP failed", error);
+    throw error;
+  }
+  logSupabase("Insert success", { table: "profiles", mode: "weekly_xp_update" });
 }
 
 export async function saveChallengeResult(
@@ -130,6 +185,8 @@ export async function fetchWeeklyRanking(currentPlayerName?: string): Promise<Ra
     throw new Error("Supabase is not configured.");
   }
 
+  logSupabase("Fetching weekly ranking");
+
   const weekStart = getWeekStartKey();
   const { data, error } = await supabaseClient
     .from("daily_results")
@@ -137,7 +194,10 @@ export async function fetchWeeklyRanking(currentPlayerName?: string): Promise<Ra
     .eq("completed", true)
     .gte("challenge_date", weekStart);
 
-  if (error) throw error;
+  if (error) {
+    logSupabaseError("Fetch ranking failed", error);
+    throw error;
+  }
 
   const totals = (data as DailyResultRow[] | null ?? []).reduce<Record<string, number>>((acc, row) => {
     acc[row.player_name] = (acc[row.player_name] ?? 0) + Number(row.xp_earned ?? 0);
@@ -153,4 +213,31 @@ export async function fetchWeeklyRanking(currentPlayerName?: string): Promise<Ra
       isCurrentUser: Boolean(currentPlayerName && name === currentPlayerName)
     }))
     .filter((entry, index) => index < 10 || entry.isCurrentUser);
+}
+
+export async function testSupabaseInsert() {
+  if (!supabaseClient) {
+    throw new Error("Supabase is not configured.");
+  }
+
+  logSupabase("Saving challenge result", { test: true });
+
+  const { data, error } = await supabaseClient
+    .from("daily_results")
+    .insert({
+      player_name: "TESTE",
+      challenge_date: new Date().toISOString().split("T")[0],
+      challenge_type: "evangelho",
+      xp_earned: 10,
+      completed: true
+    })
+    .select();
+
+  if (error) {
+    logSupabaseError("Insert failed", error);
+    throw error;
+  }
+
+  logSupabase("Insert success", data);
+  return data;
 }
