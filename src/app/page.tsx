@@ -28,7 +28,7 @@ const challengeCards = [
   },
   {
     id: "word" as const,
-    title: "Palavra da Fé",
+    title: "Palavra",
     description: "Descubra a palavra cristã de 5 letras."
   }
 ];

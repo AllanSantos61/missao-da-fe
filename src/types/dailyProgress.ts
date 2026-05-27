@@ -50,3 +50,8 @@ export type RankingEntry = {
   xp: number;
   isCurrentUser: boolean;
 };
+
+export type WeeklyRankingResult = {
+  entries: RankingEntry[];
+  source: "supabase" | "local";
+};

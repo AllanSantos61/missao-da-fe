@@ -198,3 +198,7 @@ export function getWeeklyRanking(progress = getUserProgress()): RankingEntry[] {
     }
   ];
 }
+
+export function getLocalWeeklyRanking(progress = getUserProgress()): RankingEntry[] {
+  return getWeeklyRanking(progress);
+}

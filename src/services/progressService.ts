@@ -1,24 +1,52 @@
-import type { ChallengeId, DailyChallengeResult, UserProgress } from "@/types/dailyProgress";
+import type {
+  ChallengeId,
+  DailyChallengeResult,
+  UserProgress,
+  WeeklyRankingResult
+} from "@/types/dailyProgress";
 import * as localProgressService from "@/services/localProgressService";
+import * as supabaseProgressService from "@/services/supabaseProgressService";
+
+function syncInBackground(task: () => Promise<void>) {
+  task().catch((error) => {
+    console.warn("Supabase sync failed; localStorage fallback remains active.", error);
+  });
+}
 
 export function getUserProgress() {
   return localProgressService.getUserProgress();
 }
 
 export function saveUserProgress(progress: UserProgress) {
-  return localProgressService.saveUserProgress(progress);
+  localProgressService.saveUserProgress(progress);
+  syncInBackground(() => supabaseProgressService.syncProgress(progress));
 }
 
 export function updatePlayerName(progress: UserProgress, playerName: string) {
-  return localProgressService.updatePlayerName(progress, playerName);
+  const nextProgress = localProgressService.updatePlayerName(progress, playerName);
+  syncInBackground(() => supabaseProgressService.syncProgress(nextProgress));
+  return nextProgress;
 }
 
 export function addXP(progress: UserProgress, xp: number) {
-  return localProgressService.addXP(progress, xp);
+  const nextProgress = localProgressService.addXP(progress, xp);
+  syncInBackground(() => supabaseProgressService.syncProgress(nextProgress));
+  return nextProgress;
 }
 
-export function getWeeklyRanking(progress?: UserProgress) {
-  return localProgressService.getWeeklyRanking(progress);
+export async function getWeeklyRanking(progress?: UserProgress): Promise<WeeklyRankingResult> {
+  const localProgress = progress ?? localProgressService.getUserProgress();
+
+  try {
+    const entries = await supabaseProgressService.fetchWeeklyRanking(localProgress.playerName);
+    return { entries, source: "supabase" };
+  } catch (error) {
+    console.warn("Supabase ranking failed; using local ranking.", error);
+    return {
+      entries: localProgressService.getWeeklyRanking(localProgress),
+      source: "local"
+    };
+  }
 }
 
 export function completeChallenge(
@@ -26,7 +54,13 @@ export function completeChallenge(
   challengeId: ChallengeId,
   result: DailyChallengeResult
 ) {
-  return localProgressService.completeChallenge(progress, challengeId, result);
+  const nextProgress = localProgressService.completeChallenge(progress, challengeId, result);
+  syncInBackground(async () => {
+    await supabaseProgressService.syncProgress(nextProgress);
+    await supabaseProgressService.saveChallengeResult(nextProgress, challengeId, result);
+    await supabaseProgressService.updateWeeklyXP(nextProgress);
+  });
+  return nextProgress;
 }
 
 export function hasCompletedChallengeToday(progress: UserProgress, challengeId: ChallengeId) {

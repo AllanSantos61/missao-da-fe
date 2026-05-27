@@ -1,3 +1,5 @@
+import { createClient } from "@supabase/supabase-js";
+
 type SupabaseClientConfig = {
   url: string;
   anonKey: string;
@@ -14,4 +16,13 @@ export function getSupabaseConfig(): SupabaseClientConfig | null {
   return { url, anonKey };
 }
 
-export const supabaseClient = null;
+const supabaseConfig = getSupabaseConfig();
+
+export const supabaseClient = supabaseConfig
+  ? createClient(supabaseConfig.url, supabaseConfig.anonKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false
+      }
+    })
+  : null;

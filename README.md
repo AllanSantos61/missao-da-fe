@@ -8,8 +8,9 @@ Aplicação web mobile-first com desafios católicos diários: Evangelho, Quiz e
 - React
 - TypeScript
 - Tailwind CSS
-- localStorage no MVP
-- Camada `services/progressService.ts` preparada para futura troca por Supabase
+- Supabase para ranking global e sincronização de progresso
+- localStorage como fallback offline
+- Camada `services/progressService.ts` centralizando a persistência
 
 ## Como Instalar
 
@@ -71,20 +72,19 @@ npm run build
 - Ranking local da semana usando os dados do próprio usuário.
 - Compartilhamento no WhatsApp.
 
-## Preparado para Supabase
+## Supabase
 
-O MVP usa `localStorage` por padrão, mas a arquitetura já está separada para uma futura integração com Supabase.
+O app usa Supabase quando `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY` estão configuradas. Se a conexão falhar ou as variáveis não existirem, o app continua funcionando com `localStorage`.
 
 - `services/progressService.ts` centraliza as chamadas usadas pelo app.
-- `services/localProgressService.ts` implementa a versão atual em `localStorage`.
-- `services/supabaseProgressService.ts` fica reservado para a implementação futura com banco.
+- `services/localProgressService.ts` mantém o fallback local/offline.
+- `services/supabaseProgressService.ts` sincroniza `profiles`, `daily_results` e ranking semanal.
 - `lib/supabaseClient.ts` lê `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY` sem quebrar quando as variáveis ainda não existem.
 
-Crie um `.env.local` a partir do `.env.example` quando for iniciar a integração.
+Crie um `.env.local` a partir do `.env.example` para rodar com Supabase localmente.
 
 ## Próximos Passos
 
-- Integrar Supabase no `progressService`.
 - Criar desafios reais por data litúrgica.
 - Adicionar ranking global e ranking por grupo/paróquia.
 - Criar painel administrativo para cadastrar Evangelho, perguntas e palavras.
