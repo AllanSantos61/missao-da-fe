@@ -11,7 +11,7 @@ type ChallengeCardProps = {
 };
 
 const labels: Record<ChallengeId, string> = {
-  gospel: "Evangelho",
+  gospel: "Jornada",
   quiz: "Quiz da Fé",
   word: "Palavra da Fé"
 };

@@ -65,7 +65,9 @@ npm run build
 ## O Que o MVP Inclui
 
 - Home mobile-first com três desafios independentes.
-- Evangelho do Dia, Quiz da Fé e Palavra da Fé.
+- Jornada do Novo Testamento, Quiz da Fé e Palavra da Fé.
+- Jornada sequencial que não pula trechos quando o usuário falta.
+- Calendário dos últimos 30 dias com dias concluídos, perdidos e pendentes.
 - Palavra da Fé com grade 6x5, teclado virtual, Enter e Backspace físicos.
 - Nome do jogador salvo em localStorage, sem login real.
 - XP total, XP semanal, streak atual, melhor streak e histórico diário.
@@ -79,9 +81,18 @@ O app usa Supabase quando `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANO
 - `services/progressService.ts` centraliza as chamadas usadas pelo app.
 - `services/localProgressService.ts` mantém o fallback local/offline.
 - `services/supabaseProgressService.ts` sincroniza `profiles`, `daily_results` e ranking semanal.
+- `services/bibleJourneyService.ts` sincroniza a Jornada do Novo Testamento.
 - `lib/supabaseClient.ts` lê `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY` sem quebrar quando as variáveis ainda não existem.
 
 Crie um `.env.local` a partir do `.env.example` para rodar com Supabase localmente.
+
+Para criar as tabelas da Jornada do Novo Testamento, rode no SQL Editor do Supabase:
+
+```text
+supabase/new-testament-journey.sql
+```
+
+O seed inicial usa apenas referências e conteúdo temporário próprio, sem texto bíblico com direitos autorais restritos.
 
 ## Próximos Passos
 

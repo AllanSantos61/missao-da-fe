@@ -4,23 +4,25 @@ import { useEffect, useMemo, useState } from "react";
 import { AppTopBar } from "@/components/AppTopBar";
 import { ChallengeCard } from "@/components/ChallengeCard";
 import { DailyProgressHeader } from "@/components/DailyProgressHeader";
-import { GospelChallenge } from "@/components/GospelChallenge";
 import { MissaoDaFeLogo } from "@/components/MissaoDaFeLogo";
+import { NewTestamentJourney } from "@/components/NewTestamentJourney";
 import { PlayerNameModal } from "@/components/PlayerNameModal";
 import { QuizFaith } from "@/components/QuizFaith";
 import { RankingModal } from "@/components/RankingModal";
 import { ShareResultButton } from "@/components/ShareResultButton";
 import { WordFaithGame } from "@/components/WordFaithGame";
 import { dailyChallengeData } from "@/data/dailyChallengeData";
+import { useBibleJourney } from "@/hooks/useBibleJourney";
 import { useDailyProgress } from "@/hooks/useDailyProgress";
 import { useVisitCounter } from "@/hooks/useVisitCounter";
+import { readingXP } from "@/services/bibleJourneyService";
 import type { ChallengeId, DailyChallengeResult } from "@/types/dailyProgress";
 
 const challengeCards = [
   {
     id: "gospel" as const,
-    title: "Evangelho",
-    description: "Leitura curta, reflexão e prática do dia."
+    title: "Jornada do Novo Testamento",
+    description: "Leia o Novo Testamento inteiro, um trecho por dia, no seu ritmo."
   },
   {
     id: "quiz" as const,
@@ -41,6 +43,12 @@ export default function Home() {
   const visits = useVisitCounter();
   const { progress, todayHistory, isLoaded, refreshDay, completeChallenge, updatePlayerName } =
     useDailyProgress();
+  const {
+    journey,
+    isLoading: isJourneyLoading,
+    isCompleting: isJourneyCompleting,
+    completeReading
+  } = useBibleJourney(progress?.playerName ?? "");
 
   useEffect(() => {
     refreshDay();
@@ -50,7 +58,7 @@ export default function Home() {
 
   const challengeXp = useMemo(
     () => ({
-      gospel: dailyChallengeData.gospel.xp,
+      gospel: readingXP,
       quiz: dailyChallengeData.quiz.xp,
       word: dailyChallengeData.word.xp
     }),
@@ -171,17 +179,25 @@ export default function Home() {
 
         {selectedChallenge ? <DailyProgressHeader progress={progress} todayHistory={todayHistory} /> : null}
 
-        {selectedChallenge === "gospel" ? (
-          <GospelChallenge
-            data={dailyChallengeData.gospel}
+        {selectedChallenge === "gospel" && journey ? (
+          <NewTestamentJourney
+            journey={journey}
             savedResult={selectedResult}
             progress={progress}
             todayHistory={todayHistory}
-            onComplete={handleComplete}
+            isCompleting={isJourneyCompleting}
+            onCompleteReading={completeReading}
+            onCompleteDaily={handleComplete}
             onNextMission={() => goToNextMission("gospel")}
             nextMissionLabel={getNextMissionLabel("gospel")}
             onBack={goHome}
           />
+        ) : null}
+
+        {selectedChallenge === "gospel" && isJourneyLoading ? (
+          <section className="rounded-[1.75rem] bg-white p-6 text-center shadow-card">
+            <p className="font-black text-navy">Carregando sua Jornada do Novo Testamento...</p>
+          </section>
         ) : null}
 
         {selectedChallenge === "quiz" ? (
