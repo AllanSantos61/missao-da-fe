@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { DailyChallengeData } from "@/types/dailyChallenge";
 import type { DailyChallengeResult, DayHistory, UserProgress } from "@/types/dailyProgress";
+import { ChallengeActionBar } from "@/components/ChallengeActionBar";
 import { ChallengeStatusStrip } from "@/components/ChallengeStatusStrip";
 
 type QuizFaithProps = {
@@ -11,10 +12,21 @@ type QuizFaithProps = {
   progress: UserProgress;
   todayHistory: DayHistory;
   onComplete: (result: DailyChallengeResult) => void;
+  onNextMission: () => void;
+  nextMissionLabel: string;
   onBack: () => void;
 };
 
-export function QuizFaith({ data, savedResult, progress, todayHistory, onComplete, onBack }: QuizFaithProps) {
+export function QuizFaith({
+  data,
+  savedResult,
+  progress,
+  todayHistory,
+  onComplete,
+  onNextMission,
+  nextMissionLabel,
+  onBack
+}: QuizFaithProps) {
   const [answers, setAnswers] = useState<Record<string, string>>(savedResult?.quiz?.answers ?? {});
   const completed = Boolean(savedResult);
   const isComplete = data.questions.every((question) => answers[question.id]);
@@ -39,9 +51,12 @@ export function QuizFaith({ data, savedResult, progress, todayHistory, onComplet
 
   return (
     <section className="rounded-[1.75rem] bg-altar p-5 shadow-card">
-      <button onClick={onBack} className="rounded-full bg-parchment px-4 py-2 text-sm font-black text-navy">
-        Voltar para início
-      </button>
+      <ChallengeActionBar
+        isCompleted={completed}
+        nextMissionLabel={nextMissionLabel}
+        onBack={onBack}
+        onNextMission={onNextMission}
+      />
       <div className="mt-4">
         <ChallengeStatusStrip challengeId="quiz" xp={data.xp} progress={progress} todayHistory={todayHistory} />
       </div>
@@ -51,11 +66,11 @@ export function QuizFaith({ data, savedResult, progress, todayHistory, onComplet
 
       <div className="mt-5 space-y-4">
         {data.questions.map((question, index) => (
-          <fieldset key={question.id} className="rounded-3xl bg-parchment p-4">
-            <legend className="font-black text-ink">
+          <article key={question.id} className="box-border w-full overflow-hidden rounded-3xl bg-parchment p-4">
+            <h3 className="text-base font-black leading-6 text-ink">
               {index + 1}. {question.question}
-            </legend>
-            <div className="mt-3 grid gap-2">
+            </h3>
+            <div className="mt-4 grid w-full gap-2">
               {question.options.map((option) => {
                 const selected = answers[question.id] === option;
                 const isCorrect = completed && option === question.correctAnswer;
@@ -67,7 +82,7 @@ export function QuizFaith({ data, savedResult, progress, todayHistory, onComplet
                     type="button"
                     disabled={completed}
                     onClick={() => setAnswers((current) => ({ ...current, [question.id]: option }))}
-                    className={`rounded-2xl border px-4 py-3 text-left font-bold transition ${
+                    className={`box-border block w-full rounded-2xl border px-4 py-3 text-left font-bold leading-6 transition focus:outline-none focus:ring-4 focus:ring-gold/20 ${
                       isCorrect
                         ? "border-faithGreen bg-faithGreen text-white"
                         : isWrongSelection
@@ -77,12 +92,12 @@ export function QuizFaith({ data, savedResult, progress, todayHistory, onComplet
                             : "border-navy/10 bg-white text-ink hover:border-gold"
                     }`}
                   >
-                    {option}
+                    <span className="block whitespace-normal break-words">{option}</span>
                   </button>
                 );
               })}
             </div>
-          </fieldset>
+          </article>
         ))}
       </div>
 

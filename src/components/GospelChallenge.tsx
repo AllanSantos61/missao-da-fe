@@ -2,6 +2,7 @@
 
 import type { DailyChallengeData } from "@/types/dailyChallenge";
 import type { DailyChallengeResult, DayHistory, UserProgress } from "@/types/dailyProgress";
+import { ChallengeActionBar } from "@/components/ChallengeActionBar";
 import { ChallengeStatusStrip } from "@/components/ChallengeStatusStrip";
 
 type GospelChallengeProps = {
@@ -10,10 +11,21 @@ type GospelChallengeProps = {
   progress: UserProgress;
   todayHistory: DayHistory;
   onComplete: (result: DailyChallengeResult) => void;
+  onNextMission: () => void;
+  nextMissionLabel: string;
   onBack: () => void;
 };
 
-export function GospelChallenge({ data, savedResult, progress, todayHistory, onComplete, onBack }: GospelChallengeProps) {
+export function GospelChallenge({
+  data,
+  savedResult,
+  progress,
+  todayHistory,
+  onComplete,
+  onNextMission,
+  nextMissionLabel,
+  onBack
+}: GospelChallengeProps) {
   const completed = Boolean(savedResult);
 
   function handleComplete() {
@@ -30,9 +42,12 @@ export function GospelChallenge({ data, savedResult, progress, todayHistory, onC
 
   return (
     <section className="rounded-[1.75rem] bg-altar p-5 shadow-card">
-      <button onClick={onBack} className="rounded-full bg-parchment px-4 py-2 text-sm font-black text-navy">
-        Voltar para início
-      </button>
+      <ChallengeActionBar
+        isCompleted={completed}
+        nextMissionLabel={nextMissionLabel}
+        onBack={onBack}
+        onNextMission={onNextMission}
+      />
       <div className="mt-4">
         <ChallengeStatusStrip challengeId="gospel" xp={data.xp} progress={progress} todayHistory={todayHistory} />
       </div>

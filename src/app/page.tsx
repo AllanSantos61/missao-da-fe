@@ -13,6 +13,7 @@ import { ShareResultButton } from "@/components/ShareResultButton";
 import { WordFaithGame } from "@/components/WordFaithGame";
 import { dailyChallengeData } from "@/data/dailyChallengeData";
 import { useDailyProgress } from "@/hooks/useDailyProgress";
+import { useVisitCounter } from "@/hooks/useVisitCounter";
 import type { ChallengeId, DailyChallengeResult } from "@/types/dailyProgress";
 
 const challengeCards = [
@@ -23,7 +24,7 @@ const challengeCards = [
   },
   {
     id: "quiz" as const,
-    title: "Quiz da Fé",
+    title: "Quiz",
     description: "Três perguntas rápidas sobre a mensagem."
   },
   {
@@ -37,6 +38,7 @@ export default function Home() {
   const [selectedChallenge, setSelectedChallenge] = useState<ChallengeId | null>(null);
   const [showNameModal, setShowNameModal] = useState(false);
   const [showRankingModal, setShowRankingModal] = useState(false);
+  const visits = useVisitCounter();
   const { progress, todayHistory, isLoaded, refreshDay, completeChallenge, updatePlayerName } =
     useDailyProgress();
 
@@ -65,6 +67,32 @@ export default function Home() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  function getNextMission(currentChallenge: ChallengeId) {
+    if (!todayHistory) return null;
+
+    const order: ChallengeId[] = ["gospel", "quiz", "word"];
+    const currentIndex = order.indexOf(currentChallenge);
+    const rotatedOrder = [...order.slice(currentIndex + 1), ...order.slice(0, currentIndex + 1)];
+
+    return rotatedOrder.find((challengeId) => !todayHistory.completedChallenges.includes(challengeId)) ?? null;
+  }
+
+  function goToNextMission(currentChallenge: ChallengeId) {
+    const nextMission = getNextMission(currentChallenge);
+
+    if (nextMission) {
+      setSelectedChallenge(nextMission);
+    } else {
+      goHome();
+    }
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function getNextMissionLabel(currentChallenge: ChallengeId) {
+    return getNextMission(currentChallenge) ? "Avançar para próxima missão" : "Compartilhar missão";
+  }
+
   if (!isLoaded || !progress || !todayHistory) {
     return (
       <main className="min-h-screen bg-parchment px-4 py-6 text-ink">
@@ -85,6 +113,7 @@ export default function Home() {
       <AppTopBar
         selectedChallenge={selectedChallenge}
         playerName={progress.playerName}
+        visits={visits}
         onHome={goHome}
         onSelectChallenge={setSelectedChallenge}
         onOpenName={() => setShowNameModal(true)}
@@ -149,6 +178,8 @@ export default function Home() {
             progress={progress}
             todayHistory={todayHistory}
             onComplete={handleComplete}
+            onNextMission={() => goToNextMission("gospel")}
+            nextMissionLabel={getNextMissionLabel("gospel")}
             onBack={goHome}
           />
         ) : null}
@@ -160,6 +191,8 @@ export default function Home() {
             progress={progress}
             todayHistory={todayHistory}
             onComplete={handleComplete}
+            onNextMission={() => goToNextMission("quiz")}
+            nextMissionLabel={getNextMissionLabel("quiz")}
             onBack={goHome}
           />
         ) : null}
@@ -171,6 +204,8 @@ export default function Home() {
             progress={progress}
             todayHistory={todayHistory}
             onComplete={handleComplete}
+            onNextMission={() => goToNextMission("word")}
+            nextMissionLabel={getNextMissionLabel("word")}
             onBack={goHome}
           />
         ) : null}

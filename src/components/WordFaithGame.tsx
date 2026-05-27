@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { DailyChallengeData } from "@/types/dailyChallenge";
 import type { DailyChallengeResult, DayHistory, UserProgress } from "@/types/dailyProgress";
+import { ChallengeActionBar } from "@/components/ChallengeActionBar";
 import { ChallengeStatusStrip } from "@/components/ChallengeStatusStrip";
 import { getWordLetterStatuses, normalizeWord } from "@/utils/wordUtils";
 
@@ -12,6 +13,8 @@ type WordFaithGameProps = {
   progress: UserProgress;
   todayHistory: DayHistory;
   onComplete: (result: DailyChallengeResult) => void;
+  onNextMission: () => void;
+  nextMissionLabel: string;
   onBack: () => void;
 };
 
@@ -24,7 +27,16 @@ const statusClasses = {
 
 const keyboardRows = ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"];
 
-export function WordFaithGame({ data, savedResult, progress, todayHistory, onComplete, onBack }: WordFaithGameProps) {
+export function WordFaithGame({
+  data,
+  savedResult,
+  progress,
+  todayHistory,
+  onComplete,
+  onNextMission,
+  nextMissionLabel,
+  onBack
+}: WordFaithGameProps) {
   const secret = useMemo(() => normalizeWord(data.secret).slice(0, 5), [data.secret]);
   const [input, setInput] = useState("");
   const [guesses, setGuesses] = useState<string[]>(savedResult?.word?.guesses ?? []);
@@ -125,9 +137,12 @@ export function WordFaithGame({ data, savedResult, progress, todayHistory, onCom
 
   return (
     <section className="rounded-[1.75rem] bg-altar p-5 shadow-card">
-      <button onClick={onBack} className="rounded-full bg-parchment px-4 py-2 text-sm font-black text-navy">
-        Voltar para início
-      </button>
+      <ChallengeActionBar
+        isCompleted={completed}
+        nextMissionLabel={nextMissionLabel}
+        onBack={onBack}
+        onNextMission={onNextMission}
+      />
       <div className="mt-4">
         <ChallengeStatusStrip challengeId="word" xp={data.xp} progress={progress} todayHistory={todayHistory} />
       </div>
