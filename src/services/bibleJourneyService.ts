@@ -126,6 +126,26 @@ async function getOrCreateProgress(playerName: string) {
 async function getReading(index: number) {
   if (!supabaseClient) throw new Error("Supabase not configured.");
 
+  const planResult = await supabaseClient
+    .from("reading_plan")
+    .select("reading_id")
+    .eq("day_number", index)
+    .eq("active", true)
+    .maybeSingle();
+
+  if (planResult.error) throw planResult.error;
+
+  if (planResult.data?.reading_id) {
+    const plannedReading = await supabaseClient
+      .from("bible_readings")
+      .select("*")
+      .eq("id", planResult.data.reading_id)
+      .maybeSingle();
+
+    if (plannedReading.error) throw plannedReading.error;
+    if (plannedReading.data) return mapReading(plannedReading.data as BibleReadingRow);
+  }
+
   const result = await supabaseClient
     .from("bible_readings")
     .select("*")

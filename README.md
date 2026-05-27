@@ -48,6 +48,33 @@ Para testar a versão de produção:
 npm run start
 ```
 
+## Seeds de Conteúdo
+
+Antes de rodar os seeds, aplique no SQL Editor do Supabase:
+
+```text
+supabase/content-base.sql
+supabase/new-testament-journey.sql
+```
+
+Depois configure `.env.local` com `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` e, para seeds/admin, `SUPABASE_SERVICE_ROLE_KEY`.
+
+```bash
+npm run seed:words
+npm run seed:quiz
+npm run seed:bible
+npm run seed:plan
+```
+
+Os seeds criam:
+
+- 500 linhas em `faith_words`;
+- 1500 perguntas em `quiz_questions`;
+- 365 leituras estruturais em `bible_readings`;
+- 365 dias em `reading_plan`.
+
+As leituras bíblicas usam referências, títulos e conteúdo temporário próprio. Substitua por texto bíblico com licença clara/autorizada antes de publicar a íntegra.
+
 ## Como Fazer Deploy na Vercel
 
 1. Suba este projeto para um repositório no GitHub.

@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "seed:words": "tsx scripts/seedFaithWords.ts",
+    "seed:quiz": "tsx scripts/seedQuizQuestions.ts",
+    "seed:bible": "tsx scripts/seedBibleReadings.ts",
+    "seed:plan": "tsx scripts/seedReadingPlan.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.106.2",
@@ -23,6 +27,7 @@
     "eslint-config-next": "14.2.35",
     "postcss": "8.5.6",
     "tailwindcss": "3.4.17",
+    "tsx": "^4.22.3",
     "typescript": "5.8.3"
   }
 }

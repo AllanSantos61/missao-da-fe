@@ -11,10 +11,16 @@ create table if not exists bible_readings (
   verse_end integer,
   reference text not null,
   title text,
-  content text not null,
+  content text,
+  source text,
   estimated_minutes integer default 10,
+  active boolean default true,
   created_at timestamp default now()
 );
+
+alter table bible_readings add column if not exists source text;
+alter table bible_readings add column if not exists active boolean default true;
+alter table bible_readings alter column content drop not null;
 
 create table if not exists user_bible_progress (
   id uuid primary key default gen_random_uuid(),
@@ -52,10 +58,21 @@ create table if not exists user_calendar_status (
   unique (player_name, calendar_date)
 );
 
+create table if not exists reading_plan (
+  id uuid primary key default gen_random_uuid(),
+  day_number integer not null unique,
+  reading_id uuid references bible_readings(id),
+  title text,
+  estimated_minutes integer default 10,
+  xp_reward integer default 40,
+  active boolean default true
+);
+
 alter table bible_readings enable row level security;
 alter table user_bible_progress enable row level security;
 alter table user_reading_history enable row level security;
 alter table user_calendar_status enable row level security;
+alter table reading_plan enable row level security;
 
 drop policy if exists "anon_select_bible_readings" on bible_readings;
 drop policy if exists "anon_insert_bible_readings" on bible_readings;
@@ -69,6 +86,7 @@ drop policy if exists "anon_update_user_reading_history" on user_reading_history
 drop policy if exists "anon_select_user_calendar_status" on user_calendar_status;
 drop policy if exists "anon_insert_user_calendar_status" on user_calendar_status;
 drop policy if exists "anon_update_user_calendar_status" on user_calendar_status;
+drop policy if exists "anon_select_reading_plan" on reading_plan;
 
 create policy "anon_select_bible_readings" on bible_readings for select to anon using (true);
 create policy "anon_insert_bible_readings" on bible_readings for insert to anon with check (true);
@@ -85,6 +103,7 @@ create policy "anon_update_user_reading_history" on user_reading_history for upd
 create policy "anon_select_user_calendar_status" on user_calendar_status for select to anon using (true);
 create policy "anon_insert_user_calendar_status" on user_calendar_status for insert to anon with check (true);
 create policy "anon_update_user_calendar_status" on user_calendar_status for update to anon using (true) with check (true);
+create policy "anon_select_reading_plan" on reading_plan for select to anon using (active = true);
 
 insert into bible_readings (order_index, book, chapter_start, reference, title, content, estimated_minutes)
 values

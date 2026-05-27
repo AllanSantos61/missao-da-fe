@@ -11,7 +11,7 @@ import { QuizFaith } from "@/components/QuizFaith";
 import { RankingModal } from "@/components/RankingModal";
 import { ShareResultButton } from "@/components/ShareResultButton";
 import { WordFaithGame } from "@/components/WordFaithGame";
-import { dailyChallengeData } from "@/data/dailyChallengeData";
+import { useDailyChallengeContent } from "@/hooks/useDailyChallengeContent";
 import { useBibleJourney } from "@/hooks/useBibleJourney";
 import { useDailyProgress } from "@/hooks/useDailyProgress";
 import { useVisitCounter } from "@/hooks/useVisitCounter";
@@ -38,6 +38,7 @@ export default function Home() {
   const [showNameModal, setShowNameModal] = useState(false);
   const [showRankingModal, setShowRankingModal] = useState(false);
   const visits = useVisitCounter();
+  const dailyChallengeContent = useDailyChallengeContent();
   const { progress, todayHistory, isLoaded, refreshDay, completeChallenge, updatePlayerName } =
     useDailyProgress();
   const {
@@ -56,10 +57,10 @@ export default function Home() {
   const challengeXp = useMemo(
     () => ({
       gospel: readingXP,
-      quiz: dailyChallengeData.quiz.xp,
-      word: dailyChallengeData.word.xp
+      quiz: dailyChallengeContent.quiz.xp,
+      word: dailyChallengeContent.word.xp
     }),
-    []
+    [dailyChallengeContent]
   );
 
   function handleComplete(result: DailyChallengeResult) {
@@ -198,7 +199,7 @@ export default function Home() {
 
         {selectedChallenge === "quiz" ? (
           <QuizFaith
-            data={dailyChallengeData.quiz}
+            data={dailyChallengeContent.quiz}
             savedResult={selectedResult}
             progress={progress}
             todayHistory={todayHistory}
@@ -211,7 +212,7 @@ export default function Home() {
 
         {selectedChallenge === "word" ? (
           <WordFaithGame
-            data={dailyChallengeData.word}
+            data={dailyChallengeContent.word}
             savedResult={selectedResult}
             progress={progress}
             todayHistory={todayHistory}
