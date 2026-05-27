@@ -17,6 +17,8 @@ export function ShareResultButton({ progress, todayHistory }: ShareResultButtonP
     wordAttempts: todayHistory.results.word?.word?.attempts ?? 0,
     wordSolved: Boolean(todayHistory.results.word?.word?.solved),
     streak: progress.currentStreak,
+    xpToday: todayHistory.xpEarned,
+    journeyProgress: todayHistory.results.gospel?.scoreLabel,
     url
   });
 

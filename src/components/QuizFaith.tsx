@@ -60,9 +60,9 @@ export function QuizFaith({
       <div className="mt-4">
         <ChallengeStatusStrip challengeId="quiz" xp={data.xp} progress={progress} todayHistory={todayHistory} />
       </div>
-      <p className="mt-5 text-xs font-black uppercase tracking-wide text-gold">Quiz da Fe</p>
+      <p className="mt-5 text-xs font-black uppercase tracking-wide text-gold">Quiz da Fé</p>
       <h2 className="mt-2 text-3xl font-black text-ink">{data.title}</h2>
-      <p className="mt-2 leading-7 text-ink/68">Responda as 3 perguntas e veja sua pontuacao do dia.</p>
+      <p className="mt-2 leading-7 text-ink/68">Responda às 3 perguntas e veja sua pontuação do dia.</p>
 
       <div className="mt-5 space-y-4">
         {data.questions.map((question, index) => (

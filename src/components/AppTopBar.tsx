@@ -14,7 +14,7 @@ type AppTopBarProps = {
 };
 
 const navItems: Array<{ id: ChallengeId; label: string }> = [
-  { id: "gospel", label: "Evangelho" },
+  { id: "gospel", label: "Jornada" },
   { id: "quiz", label: "Quiz" },
   { id: "word", label: "Palavra" }
 ];

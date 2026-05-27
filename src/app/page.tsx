@@ -21,17 +21,14 @@ import type { ChallengeId, DailyChallengeResult } from "@/types/dailyProgress";
 const challengeCards = [
   {
     id: "gospel" as const,
-    title: "Jornada do Novo Testamento",
     description: "Leia o Novo Testamento inteiro, um trecho por dia, no seu ritmo."
   },
   {
     id: "quiz" as const,
-    title: "Quiz",
     description: "Três perguntas rápidas sobre a mensagem."
   },
   {
     id: "word" as const,
-    title: "Palavra",
     description: "Descubra a palavra cristã de 5 letras."
   }
 ];
@@ -145,7 +142,6 @@ export default function Home() {
                 <ChallengeCard
                   key={card.id}
                   id={card.id}
-                  title={card.title}
                   description={card.description}
                   xp={challengeXp[card.id]}
                   completed={todayHistory.completedChallenges.includes(card.id)}
@@ -157,7 +153,7 @@ export default function Home() {
 
             {completedCount === 3 ? (
               <section className="rounded-[1.75rem] bg-white p-5 text-center shadow-card">
-                <p className="text-2xl font-black text-navy">Hoje voce completou sua missao.</p>
+                <p className="text-2xl font-black text-navy">Hoje você completou sua missão.</p>
                 <p className="mt-2 leading-7 text-ink/70">
                   Amanhã tem uma nova jornada. Um passo fiel por dia também transforma a alma. 🙏
                 </p>

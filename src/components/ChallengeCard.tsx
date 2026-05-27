@@ -2,7 +2,6 @@ import type { ChallengeId, DailyChallengeResult } from "@/types/dailyProgress";
 
 type ChallengeCardProps = {
   id: ChallengeId;
-  title: string;
   description: string;
   xp: number;
   completed: boolean;
@@ -11,29 +10,28 @@ type ChallengeCardProps = {
 };
 
 const labels: Record<ChallengeId, string> = {
-  gospel: "Jornada",
+  gospel: "Jornada da Fé",
   quiz: "Quiz da Fé",
   word: "Palavra da Fé"
 };
 
-export function ChallengeCard({ id, title, description, xp, completed, result, onOpen }: ChallengeCardProps) {
+export function ChallengeCard({ id, description, xp, completed, result, onOpen }: ChallengeCardProps) {
   return (
-    <article className="flex min-h-[238px] flex-col justify-between rounded-[1.25rem] border border-white bg-altar p-4 shadow-card sm:min-h-[270px]">
+    <article className="flex min-h-[214px] flex-col justify-between rounded-[1.25rem] border border-white bg-altar p-4 shadow-card sm:min-h-[238px]">
       <div>
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-xs font-black uppercase tracking-wide text-gold">{labels[id]}</p>
-            <h2 className="mt-1 text-lg font-black leading-tight text-ink">{title}</h2>
           </div>
           <span
             className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${
               completed ? "bg-faithGreen/12 text-faithGreen" : "bg-gold/15 text-navy"
             }`}
           >
-            {completed ? "Concluido hoje" : "Disponivel"}
+            {completed ? "Concluído hoje" : "Disponível"}
           </span>
         </div>
-        <p className="mt-3 min-h-[48px] text-sm leading-6 text-ink/68">{description}</p>
+        <p className="mt-4 min-h-[72px] text-sm leading-6 text-ink/68">{description}</p>
       </div>
       <div>
         <div className="mt-4 flex min-h-[28px] items-center justify-between">

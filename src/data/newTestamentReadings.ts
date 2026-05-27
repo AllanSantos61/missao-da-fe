@@ -40,7 +40,7 @@ export const fallbackNewTestamentReadings: BibleReading[] = [
     book: "Mateus",
     chapterStart: 4,
     reference: "Mateus 4",
-    title: "Jesus no deserto e o inicio da missao",
+    title: "Jesus no deserto e o início da missão",
     content: placeholder,
     estimatedMinutes: 10
   },

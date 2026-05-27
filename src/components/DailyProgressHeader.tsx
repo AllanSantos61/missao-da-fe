@@ -15,7 +15,7 @@ export function DailyProgressHeader({ progress, todayHistory }: DailyProgressHea
           <p className="text-xs font-black uppercase tracking-[0.18em] text-gold">Missão de Hoje</p>
           <h1 className="mt-2 text-2xl font-black leading-tight sm:text-3xl">Complete sua jornada diária</h1>
           <p className="mt-3 max-w-md text-sm leading-6 text-white/78 sm:text-base sm:leading-7">
-            Evangelho, Quiz da Fé e Palavra da Fé em poucos minutos.
+            Jornada, Quiz da Fé e Palavra da Fé em poucos minutos.
           </p>
         </div>
         <div className="rounded-2xl bg-white/10 px-3 py-2 text-right">
@@ -37,7 +37,7 @@ export function DailyProgressHeader({ progress, todayHistory }: DailyProgressHea
           <p className="text-lg font-black">{progress.totalXP}</p>
         </div>
         <div className="rounded-2xl bg-white/10 p-3">
-          <p className="text-xs text-white/65">Sequencia</p>
+          <p className="text-xs text-white/65">Sequência</p>
           <p className="text-lg font-black">{progress.currentStreak}</p>
         </div>
         <div className="rounded-2xl bg-white/10 p-3">

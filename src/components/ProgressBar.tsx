@@ -9,7 +9,7 @@ export function ProgressBar({ currentStep, totalSteps }: ProgressBarProps) {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-navy/60">
-        <span>Desafio diario</span>
+        <span>Desafio diário</span>
         <span>{progress}%</span>
       </div>
       <div className="h-3 overflow-hidden rounded-full bg-navy/10">

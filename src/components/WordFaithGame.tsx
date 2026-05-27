@@ -67,7 +67,7 @@ export function WordFaithGame({
       id: "word",
       completedAt: new Date().toISOString(),
       xpEarned: didSolve ? data.xp : Math.round(data.xp / 2),
-      scoreLabel: didSolve ? `${nextGuesses.length}/6` : "Nao resolvida",
+      scoreLabel: didSolve ? `${nextGuesses.length}/6` : "Não resolvida",
       word: {
         solved: didSolve,
         attempts: nextGuesses.length,
@@ -146,10 +146,10 @@ export function WordFaithGame({
       <div className="mt-4">
         <ChallengeStatusStrip challengeId="word" xp={data.xp} progress={progress} todayHistory={todayHistory} />
       </div>
-      <p className="mt-5 text-xs font-black uppercase tracking-wide text-gold">Palavra da Fe</p>
+      <p className="mt-5 text-xs font-black uppercase tracking-wide text-gold">Palavra da Fé</p>
       <h2 className="mt-2 text-3xl font-black text-ink">{data.title}</h2>
       <p className="mt-2 leading-7 text-ink/68">
-        Descubra a palavra catolica de 5 letras. Verde e posicao certa; dourado existe em outro
+        Descubra a palavra católica de 5 letras. Verde é posição certa; dourado existe em outro
         lugar.
       </p>
 

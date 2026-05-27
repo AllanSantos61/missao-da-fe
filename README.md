@@ -1,6 +1,6 @@
 # Missão da Fé
 
-Aplicação web mobile-first com desafios católicos diários: Evangelho, Quiz e Palavra da Fé.
+Aplicação web mobile-first com desafios católicos diários: Jornada, Quiz da Fé e Palavra da Fé.
 
 ## Tecnologias Usadas
 
@@ -98,5 +98,5 @@ O seed inicial usa apenas referências e conteúdo temporário próprio, sem tex
 
 - Criar desafios reais por data litúrgica.
 - Adicionar ranking global e ranking por grupo/paróquia.
-- Criar painel administrativo para cadastrar Evangelho, perguntas e palavras.
+- Criar painel administrativo para cadastrar leituras, perguntas e palavras.
 - Melhorar SEO, metadados sociais e páginas compartilháveis.

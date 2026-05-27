@@ -4,7 +4,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Missão da Fé — O desafio diário da fé",
   description:
-    "Complete sua missão diária com Evangelho, Quiz da Fé e Palavra da Fé em poucos minutos.",
+    "Complete sua missão diária com Jornada, Quiz da Fé e Palavra da Fé em poucos minutos.",
   keywords: [
     "missão da fé",
     "desafio católico",
