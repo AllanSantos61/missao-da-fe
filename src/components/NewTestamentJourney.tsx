@@ -3,6 +3,7 @@
 import { ChallengeActionBar } from "@/components/ChallengeActionBar";
 import { ChallengeStatusStrip } from "@/components/ChallengeStatusStrip";
 import { XPJourneyCalendar } from "@/components/XPJourneyCalendar";
+import { useBibleApiReading } from "@/hooks/useBibleApiReading";
 import { readingXP } from "@/services/bibleJourneyService";
 import type { DailyChallengeResult, DayHistory, UserProgress } from "@/types/dailyProgress";
 import type { CurrentReadingState } from "@/types/bibleJourney";
@@ -34,6 +35,7 @@ export function NewTestamentJourney({
 }: NewTestamentJourneyProps) {
   const completedToday = Boolean(savedResult);
   const percent = Math.min(100, Math.round((journey.progress.completedReadings / journey.progress.totalReadings) * 100));
+  const bibleText = useBibleApiReading(journey.reading);
 
   async function handleCompleteReading() {
     if (completedToday || isCompleting) return;
@@ -92,13 +94,37 @@ export function NewTestamentJourney({
           </div>
           <div className="rounded-2xl bg-white/10 p-3">
             <p className="text-white/60">Fonte</p>
-            <p className="font-black">{journey.source === "supabase" ? "Online" : "Local"}</p>
+            <p className="font-black">
+              {bibleText.reading?.source === "api"
+                ? "Bible API"
+                : bibleText.reading?.source === "cache"
+                  ? "Cache"
+                  : journey.source === "supabase"
+                    ? "Online"
+                    : "Local"}
+            </p>
           </div>
         </div>
       </div>
 
       <article className="mt-5 rounded-3xl border border-navy/10 bg-parchment p-5">
-        <p className="text-lg leading-8 text-ink/78">{journey.reading.content}</p>
+        {bibleText.isLoading ? (
+          <div className="space-y-3">
+            <div className="h-4 w-2/3 animate-pulse rounded-full bg-navy/10" />
+            <div className="h-4 w-full animate-pulse rounded-full bg-navy/10" />
+            <div className="h-4 w-5/6 animate-pulse rounded-full bg-navy/10" />
+            <p className="pt-2 text-sm font-bold text-navy/65">Carregando leitura pela Bible API...</p>
+          </div>
+        ) : (
+          <>
+            {bibleText.reading?.errorMessage ? (
+              <div className="mb-4 rounded-2xl bg-gold/15 p-4 text-sm font-bold leading-6 text-navy">
+                {bibleText.reading.errorMessage}
+              </div>
+            ) : null}
+            <p className="whitespace-pre-line text-lg leading-8 text-ink/78">{bibleText.reading?.text}</p>
+          </>
+        )}
       </article>
 
       <div className="mt-5">

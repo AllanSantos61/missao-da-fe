@@ -30,7 +30,7 @@ const books = [
   ["Apocalipse", 22]
 ] as const;
 
-const source = "Estrutura própria do MVP; conteúdo temporário sem tradução bíblica restrita.";
+const source = "Bible API (translation=almeida) sob demanda; o banco guarda apenas metadados da leitura.";
 
 function makeSegments() {
   const chapters = books.flatMap(([book, chapterCount]) =>
@@ -95,8 +95,7 @@ function makeSegments() {
     verse_end: segment.verseEnd ?? null,
     reference: segment.reference,
     title: segment.title,
-    content:
-      "Resumo temporário próprio para o MVP. Substituir por texto bíblico em português com licença clara/autorizada antes de publicar a leitura integral.",
+    content: null,
     source,
     estimated_minutes: segment.verseStart ? 8 : 10,
     active: true

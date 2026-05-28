@@ -24,7 +24,8 @@ type BibleReadingRow = {
   verse_end: number | null;
   reference: string;
   title: string | null;
-  content: string;
+  content: string | null;
+  source: string | null;
   estimated_minutes: number | null;
 };
 
@@ -64,6 +65,7 @@ function mapReading(row: BibleReadingRow): BibleReading {
     reference: row.reference,
     title: row.title ?? row.reference,
     content: row.content,
+    source: row.source,
     estimatedMinutes: row.estimated_minutes ?? 10
   };
 }

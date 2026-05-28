@@ -9,6 +9,7 @@ Aplicação web mobile-first com desafios católicos diários: Jornada, Quiz da 
 - TypeScript
 - Tailwind CSS
 - Supabase para ranking global e sincronização de progresso
+- Bible API (`translation=almeida`) para carregar leituras bíblicas sob demanda
 - localStorage como fallback offline
 - Camada `services/progressService.ts` centralizando a persistência
 
@@ -70,10 +71,10 @@ Os seeds criam:
 
 - 500 linhas em `faith_words`;
 - 1500 perguntas em `quiz_questions`;
-- 365 leituras estruturais em `bible_readings`;
+- 365 leituras estruturais em `bible_readings`, sem armazenar o texto bíblico completo;
 - 365 dias em `reading_plan`.
 
-As leituras bíblicas usam referências, títulos e conteúdo temporário próprio. Substitua por texto bíblico com licença clara/autorizada antes de publicar a íntegra.
+As leituras bíblicas usam referências, títulos e metadados. O texto é carregado no frontend pela Bible API apenas quando a pessoa abre a leitura, com cache em `localStorage` por referência.
 
 ## Como Fazer Deploy na Vercel
 
@@ -109,6 +110,7 @@ O app usa Supabase quando `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANO
 - `services/localProgressService.ts` mantém o fallback local/offline.
 - `services/supabaseProgressService.ts` sincroniza `profiles`, `daily_results` e ranking semanal.
 - `services/bibleJourneyService.ts` sincroniza a Jornada do Novo Testamento.
+- `services/bibleApi.ts` busca o texto bíblico sob demanda na Bible API e usa cache local para evitar chamadas repetidas.
 - `lib/supabaseClient.ts` lê `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY` sem quebrar quando as variáveis ainda não existem.
 
 Crie um `.env.local` a partir do `.env.example` para rodar com Supabase localmente.
@@ -119,7 +121,7 @@ Para criar as tabelas da Jornada do Novo Testamento, rode no SQL Editor do Supab
 supabase/new-testament-journey.sql
 ```
 
-O seed inicial usa apenas referências e conteúdo temporário próprio, sem texto bíblico com direitos autorais restritos.
+O seed inicial usa apenas referências e metadados. O app não baixa a Bíblia inteira automaticamente; cada leitura é buscada sob demanda em `https://bible-api.com/` com `translation=almeida`. Se a API falhar, a interface mostra uma mensagem amigável e mantém a jornada funcionando com fallback local.
 
 ## Próximos Passos
 

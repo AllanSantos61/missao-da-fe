@@ -105,11 +105,11 @@ create policy "anon_insert_user_calendar_status" on user_calendar_status for ins
 create policy "anon_update_user_calendar_status" on user_calendar_status for update to anon using (true) with check (true);
 create policy "anon_select_reading_plan" on reading_plan for select to anon using (active = true);
 
-insert into bible_readings (order_index, book, chapter_start, reference, title, content, estimated_minutes)
+insert into bible_readings (order_index, book, chapter_start, reference, title, content, source, estimated_minutes)
 values
-  (1, 'Mateus', 1, 'Mateus 1', 'A genealogia e o nascimento de Jesus', 'Conteudo temporario para MVP. Substituir por texto biblico com licenca autorizada antes de publicar a leitura integral.', 10),
-  (2, 'Mateus', 2, 'Mateus 2', 'Os magos, a fuga e o retorno', 'Conteudo temporario para MVP. Substituir por texto biblico com licenca autorizada antes de publicar a leitura integral.', 10),
-  (3, 'Mateus', 3, 'Mateus 3', 'Joao Batista prepara o caminho', 'Conteudo temporario para MVP. Substituir por texto biblico com licenca autorizada antes de publicar a leitura integral.', 8),
-  (4, 'Mateus', 4, 'Mateus 4', 'Jesus no deserto e o inicio da missao', 'Conteudo temporario para MVP. Substituir por texto biblico com licenca autorizada antes de publicar a leitura integral.', 10),
-  (5, 'Mateus', 5, 'Mateus 5', 'O sermao da montanha', 'Conteudo temporario para MVP. Substituir por texto biblico com licenca autorizada antes de publicar a leitura integral.', 12)
+  (1, 'Mateus', 1, 'Mateus 1', 'A genealogia e o nascimento de Jesus', null, 'Bible API (translation=almeida) sob demanda; texto nao armazenado no MVP.', 10),
+  (2, 'Mateus', 2, 'Mateus 2', 'Os magos, a fuga e o retorno', null, 'Bible API (translation=almeida) sob demanda; texto nao armazenado no MVP.', 10),
+  (3, 'Mateus', 3, 'Mateus 3', 'Joao Batista prepara o caminho', null, 'Bible API (translation=almeida) sob demanda; texto nao armazenado no MVP.', 8),
+  (4, 'Mateus', 4, 'Mateus 4', 'Jesus no deserto e o inicio da missao', null, 'Bible API (translation=almeida) sob demanda; texto nao armazenado no MVP.', 10),
+  (5, 'Mateus', 5, 'Mateus 5', 'O sermao da montanha', null, 'Bible API (translation=almeida) sob demanda; texto nao armazenado no MVP.', 12)
 on conflict (order_index) do nothing;

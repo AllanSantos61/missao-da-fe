@@ -11,7 +11,8 @@ export type BibleReading = {
   verseEnd?: number | null;
   reference: string;
   title: string;
-  content: string;
+  content?: string | null;
+  source?: string | null;
   estimatedMinutes: number;
 };
 
