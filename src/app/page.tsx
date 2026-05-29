@@ -3,13 +3,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { AppTopBar } from "@/components/AppTopBar";
 import { ChallengeCard } from "@/components/ChallengeCard";
+import { CommunityModal } from "@/components/CommunityModal";
 import { DailyProgressHeader } from "@/components/DailyProgressHeader";
 import { MissaoDaFeLogo } from "@/components/MissaoDaFeLogo";
 import { NewTestamentJourney } from "@/components/NewTestamentJourney";
 import { OnboardingModal } from "@/components/OnboardingModal";
 import { PlayerNameModal } from "@/components/PlayerNameModal";
+import { PwaInstallButton } from "@/components/PwaInstallButton";
 import { QuizFaith } from "@/components/QuizFaith";
 import { RankingModal } from "@/components/RankingModal";
+import { ReminderCard } from "@/components/ReminderCard";
 import { ShareResultButton } from "@/components/ShareResultButton";
 import { WordFaithGame } from "@/components/WordFaithGame";
 import { useDailyChallengeContent } from "@/hooks/useDailyChallengeContent";
@@ -39,10 +42,20 @@ export default function Home() {
   const [selectedChallenge, setSelectedChallenge] = useState<ChallengeId | null>(null);
   const [showNameModal, setShowNameModal] = useState(false);
   const [showRankingModal, setShowRankingModal] = useState(false);
+  const [showCommunityModal, setShowCommunityModal] = useState(false);
   const visits = useVisitCounter();
   const dailyChallengeContent = useDailyChallengeContent();
-  const { progress, todayHistory, isLoaded, refreshDay, completeChallenge, updatePlayerName, completeOnboarding } =
-    useDailyProgress();
+  const {
+    progress,
+    todayHistory,
+    isLoaded,
+    refreshDay,
+    completeChallenge,
+    updatePlayerName,
+    updateCommunity,
+    updateReminderPreference,
+    completeOnboarding
+  } = useDailyProgress();
   const {
     journey,
     isLoading: isJourneyLoading,
@@ -111,6 +124,16 @@ export default function Home() {
       eventName: "player_name_saved",
       userId: progress?.anonymousUserId,
       playerName
+    });
+  }
+
+  function handleCommunitySave(community: NonNullable<typeof progress>["community"]) {
+    updateCommunity(community);
+    void trackEvent({
+      eventName: "community_saved",
+      userId: progress?.anonymousUserId,
+      playerName: progress?.playerName,
+      metadata: community
     });
   }
 
@@ -274,6 +297,7 @@ export default function Home() {
         onSelectChallenge={selectChallenge}
         onOpenName={() => setShowNameModal(true)}
         onOpenRanking={openRanking}
+        onOpenCommunity={() => setShowCommunityModal(true)}
       />
 
       <div className="mx-auto mt-4 flex w-full max-w-3xl flex-col gap-5">
@@ -348,6 +372,20 @@ export default function Home() {
                 />
               ))}
             </section>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <ReminderCard progress={progress} onSave={updateReminderPreference} />
+              <section className="rounded-[1.75rem] bg-white p-5 shadow-card">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-gold">App instalável</p>
+                <h3 className="mt-2 text-xl font-black text-navy">Leve sua jornada com você</h3>
+                <p className="mt-2 text-sm leading-6 text-ink/68">
+                  Instale o Missão da Fé na tela inicial para voltar com mais facilidade.
+                </p>
+                <div className="mt-4">
+                  <PwaInstallButton progress={progress} />
+                </div>
+              </section>
+            </div>
 
             {completedCount === 3 ? (
               <section className="rounded-[1.75rem] bg-white p-5 text-center shadow-card">
@@ -444,6 +482,14 @@ export default function Home() {
 
       {showRankingModal ? (
         <RankingModal progress={progress} onClose={() => setShowRankingModal(false)} />
+      ) : null}
+
+      {showCommunityModal ? (
+        <CommunityModal
+          community={progress.community}
+          onSave={handleCommunitySave}
+          onClose={() => setShowCommunityModal(false)}
+        />
       ) : null}
 
       {!progress.onboardingCompleted ? (

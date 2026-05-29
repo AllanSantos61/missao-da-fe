@@ -1,8 +1,10 @@
 import type {
   ChallengeId,
+  CommunityInfo,
   DailyChallengeResult,
   DayHistory,
   RankingEntry,
+  ReminderPreference,
   UserProgress
 } from "@/types/dailyProgress";
 import { getPreviousDayKey, getTodayKey } from "@/utils/dateUtils";
@@ -27,6 +29,19 @@ function createDayHistory(date: string): DayHistory {
   };
 }
 
+const emptyCommunity: CommunityInfo = {
+  city: "",
+  parish: "",
+  groupName: "",
+  diocese: ""
+};
+
+const defaultReminder: ReminderPreference = {
+  enabled: false,
+  period: "morning",
+  customTime: "08:00"
+};
+
 function createInitialProgress(today = getTodayKey()): UserProgress {
   return {
     activeDate: today,
@@ -39,6 +54,8 @@ function createInitialProgress(today = getTodayKey()): UserProgress {
     currentStreak: 0,
     bestStreak: 0,
     lastCompletedDate: null,
+    community: emptyCommunity,
+    reminder: defaultReminder,
     dailyHistory: {
       [today]: createDayHistory(today)
     }
@@ -75,6 +92,8 @@ export function resetDailyStateIfNeeded(progress: UserProgress): UserProgress {
     anonymousUserId: progress.anonymousUserId || createLocalUserId(),
     localUserId: progress.localUserId || progress.anonymousUserId || createLocalUserId(),
     onboardingCompleted: Boolean(progress.onboardingCompleted),
+    community: { ...emptyCommunity, ...(progress.community ?? {}) },
+    reminder: { ...defaultReminder, ...(progress.reminder ?? {}) },
     activeDate: today,
     weeklyXP: calculateWeeklyXP(dailyHistory, today),
     dailyHistory
@@ -108,6 +127,35 @@ export function updatePlayerName(progress: UserProgress, playerName: string) {
   const nextProgress = {
     ...progress,
     playerName: playerName.trim().slice(0, 32)
+  };
+
+  saveUserProgress(nextProgress);
+  return nextProgress;
+}
+
+export function updateCommunity(progress: UserProgress, community: CommunityInfo) {
+  const nextProgress = {
+    ...progress,
+    community: {
+      city: community.city.trim().slice(0, 64),
+      parish: community.parish.trim().slice(0, 96),
+      groupName: community.groupName.trim().slice(0, 96),
+      diocese: community.diocese.trim().slice(0, 96)
+    }
+  };
+
+  saveUserProgress(nextProgress);
+  return nextProgress;
+}
+
+export function updateReminderPreference(progress: UserProgress, reminder: ReminderPreference) {
+  const nextProgress = {
+    ...progress,
+    reminder: {
+      enabled: reminder.enabled,
+      period: reminder.period,
+      customTime: reminder.customTime || "08:00"
+    }
   };
 
   saveUserProgress(nextProgress);

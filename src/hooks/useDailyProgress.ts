@@ -1,7 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { ChallengeId, DailyChallengeResult, UserProgress } from "@/types/dailyProgress";
+import type {
+  ChallengeId,
+  CommunityInfo,
+  DailyChallengeResult,
+  ReminderPreference,
+  UserProgress
+} from "@/types/dailyProgress";
 import {
   completeChallenge as completeChallengeInService,
   completeOnboarding as completeOnboardingInService,
@@ -9,7 +15,9 @@ import {
   hasCompletedChallengeToday,
   resetDailyStateIfNeeded,
   saveUserProgress,
-  updatePlayerName as updatePlayerNameInService
+  updateCommunity as updateCommunityInService,
+  updatePlayerName as updatePlayerNameInService,
+  updateReminderPreference as updateReminderPreferenceInService
 } from "@/services/progressService";
 
 export function useDailyProgress() {
@@ -62,6 +70,20 @@ export function useDailyProgress() {
     });
   }, []);
 
+  const updateCommunity = useCallback(function updateCommunity(community: CommunityInfo) {
+    setProgress((current) => {
+      if (!current) return current;
+      return updateCommunityInService(current, community);
+    });
+  }, []);
+
+  const updateReminderPreference = useCallback(function updateReminderPreference(reminder: ReminderPreference) {
+    setProgress((current) => {
+      if (!current) return current;
+      return updateReminderPreferenceInService(current, reminder);
+    });
+  }, []);
+
   return {
     progress,
     todayHistory,
@@ -69,6 +91,8 @@ export function useDailyProgress() {
     refreshDay,
     completeChallenge,
     updatePlayerName,
+    updateCommunity,
+    updateReminderPreference,
     completeOnboarding
   };
 }

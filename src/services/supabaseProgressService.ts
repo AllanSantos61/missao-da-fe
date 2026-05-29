@@ -1,5 +1,5 @@
 import { supabaseClient } from "@/lib/supabaseClient";
-import type { ChallengeId, DailyChallengeResult, RankingEntry, UserProgress } from "@/types/dailyProgress";
+import type { ChallengeId, DailyChallengeResult, RankingEntry, RankingFilter, UserProgress } from "@/types/dailyProgress";
 import { getTodayKey } from "@/utils/dateUtils";
 
 type DailyResultRow = {
@@ -12,8 +12,13 @@ type ExistingDailyResultRow = {
 };
 
 type ProfileRankingRow = {
+  user_id?: string | null;
   player_name: string;
   weekly_xp: number | null;
+  city?: string | null;
+  parish?: string | null;
+  group_name?: string | null;
+  diocese?: string | null;
 };
 
 type ProfileRow = {
@@ -77,7 +82,17 @@ export async function ensureUserProfile(progress: UserProgress): Promise<Profile
     total_xp: progress.totalXP,
     weekly_xp: progress.weeklyXP,
     current_streak: progress.currentStreak,
-    best_streak: progress.bestStreak
+    best_streak: progress.bestStreak,
+    city: progress.community.city || null,
+    parish: progress.community.parish || null,
+    group_name: progress.community.groupName || null,
+    diocese: progress.community.diocese || null,
+    reminder_period: progress.reminder.enabled ? progress.reminder.period : null,
+    reminder_time: progress.reminder.enabled
+      ? progress.reminder.period === "custom"
+        ? progress.reminder.customTime
+        : progress.reminder.period
+      : null
   };
 
   const existingProfile = await findProfileByUserId(progress.anonymousUserId, progress.playerName);
@@ -239,26 +254,49 @@ export async function saveChallengeResult(
   await upsertDailyResult(progress, getTodayKey(), challengeId, result);
 }
 
-export async function fetchWeeklyRanking(currentPlayerName?: string): Promise<RankingEntry[]> {
+function getRankingFilterValue(progress: UserProgress, filter: RankingFilter) {
+  if (filter === "city") return progress.community.city;
+  if (filter === "parish") return progress.community.parish;
+  if (filter === "group") return progress.community.groupName;
+  if (filter === "diocese") return progress.community.diocese;
+  return "";
+}
+
+function getRankingFilterColumn(filter: RankingFilter) {
+  if (filter === "group") return "group_name";
+  return filter;
+}
+
+export async function fetchWeeklyRanking(progress: UserProgress, filter: RankingFilter = "global"): Promise<RankingEntry[]> {
   if (!supabaseClient) {
     throw new Error("Supabase is not configured.");
   }
 
-  logSupabase("Fetching weekly ranking");
+  logSupabase("Fetching weekly ranking", { filter });
 
-  const profiles = await supabaseClient
+  const currentPlayerName = progress.playerName;
+  const filterValue = getRankingFilterValue(progress, filter);
+  if (filter !== "global" && !filterValue) return [];
+
+  let profilesQuery = supabaseClient
     .from("profiles")
-    .select("player_name, weekly_xp")
+    .select("user_id, player_name, weekly_xp, city, parish, group_name, diocese")
     .gt("weekly_xp", 0)
     .order("weekly_xp", { ascending: false })
     .limit(10);
+
+  if (filter !== "global") {
+    profilesQuery = profilesQuery.eq(getRankingFilterColumn(filter), filterValue);
+  }
+
+  const profiles = await profilesQuery;
 
   if (!profiles.error && profiles.data?.length) {
     return (profiles.data as ProfileRankingRow[]).map((row, index) => ({
       rank: index + 1,
       name: row.player_name,
       xp: Number(row.weekly_xp ?? 0),
-      isCurrentUser: Boolean(currentPlayerName && row.player_name === currentPlayerName)
+      isCurrentUser: Boolean(row.user_id && row.user_id === progress.anonymousUserId) || Boolean(currentPlayerName && row.player_name === currentPlayerName)
     }));
   }
 

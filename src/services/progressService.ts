@@ -1,6 +1,9 @@
 import type {
   ChallengeId,
+  CommunityInfo,
   DailyChallengeResult,
+  RankingFilter,
+  ReminderPreference,
   UserProgress,
   WeeklyRankingResult
 } from "@/types/dailyProgress";
@@ -28,6 +31,18 @@ export function updatePlayerName(progress: UserProgress, playerName: string) {
   return nextProgress;
 }
 
+export function updateCommunity(progress: UserProgress, community: CommunityInfo) {
+  const nextProgress = localProgressService.updateCommunity(progress, community);
+  syncInBackground(() => supabaseProgressService.syncProgress(nextProgress));
+  return nextProgress;
+}
+
+export function updateReminderPreference(progress: UserProgress, reminder: ReminderPreference) {
+  const nextProgress = localProgressService.updateReminderPreference(progress, reminder);
+  syncInBackground(() => supabaseProgressService.syncProgress(nextProgress));
+  return nextProgress;
+}
+
 export function completeOnboarding(progress: UserProgress, playerName?: string) {
   const nextProgress = localProgressService.completeOnboarding(progress, playerName);
   syncInBackground(() => supabaseProgressService.syncProgress(nextProgress));
@@ -40,11 +55,11 @@ export function addXP(progress: UserProgress, xp: number) {
   return nextProgress;
 }
 
-export async function getWeeklyRanking(progress?: UserProgress): Promise<WeeklyRankingResult> {
+export async function getWeeklyRanking(progress?: UserProgress, filter: RankingFilter = "global"): Promise<WeeklyRankingResult> {
   const localProgress = progress ?? localProgressService.getUserProgress();
 
   try {
-    const entries = await supabaseProgressService.fetchWeeklyRanking(localProgress.playerName);
+    const entries = await supabaseProgressService.fetchWeeklyRanking(localProgress, filter);
     return { entries, source: "supabase" };
   } catch (error) {
     console.warn("Supabase ranking failed; using local ranking.", error);

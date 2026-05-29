@@ -15,7 +15,14 @@ export type AnalyticsEventName =
   | "mission_completed"
   | "whatsapp_shared"
   | "ranking_opened"
-  | "calendar_opened";
+  | "calendar_opened"
+  | "community_saved"
+  | "ranking_filter_changed"
+  | "calendar_milestone_clicked"
+  | "pwa_install_clicked"
+  | "reminder_saved"
+  | "public_result_opened"
+  | "public_result_shared";
 
 type TrackEventParams = {
   eventName: AnalyticsEventName;

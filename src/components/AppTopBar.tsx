@@ -11,6 +11,7 @@ type AppTopBarProps = {
   onSelectChallenge: (challengeId: ChallengeId) => void;
   onOpenName: () => void;
   onOpenRanking: () => void;
+  onOpenCommunity: () => void;
 };
 
 const navItems: Array<{ id: ChallengeId; label: string }> = [
@@ -26,7 +27,8 @@ export function AppTopBar({
   onHome,
   onSelectChallenge,
   onOpenName,
-  onOpenRanking
+  onOpenRanking,
+  onOpenCommunity
 }: AppTopBarProps) {
   return (
     <div className="sticky top-0 z-40 -mx-4 border-b border-navy/10 bg-parchment/94 px-4 py-3 backdrop-blur">
@@ -49,6 +51,12 @@ export function AppTopBar({
             >
               <span className="sm:hidden">Ranking</span>
               <span className="hidden sm:inline">Ranking da Semana</span>
+            </button>
+            <button
+              onClick={onOpenCommunity}
+              className="hidden rounded-full border border-navy/15 bg-white px-3 py-2 text-xs font-black text-navy shadow-sm sm:inline"
+            >
+              Comunidade
             </button>
             <button
               onClick={onOpenName}

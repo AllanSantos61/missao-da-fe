@@ -44,8 +44,27 @@ export type UserProgress = {
   currentStreak: number;
   bestStreak: number;
   lastCompletedDate: string | null;
+  community: CommunityInfo;
+  reminder: ReminderPreference;
   dailyHistory: Record<string, DayHistory>;
 };
+
+export type CommunityInfo = {
+  city: string;
+  parish: string;
+  groupName: string;
+  diocese: string;
+};
+
+export type ReminderPeriod = "morning" | "afternoon" | "night" | "custom";
+
+export type ReminderPreference = {
+  enabled: boolean;
+  period: ReminderPeriod;
+  customTime: string;
+};
+
+export type RankingFilter = "global" | "city" | "parish" | "group" | "diocese";
 
 export type RankingEntry = {
   rank: number;
@@ -57,4 +76,19 @@ export type RankingEntry = {
 export type WeeklyRankingResult = {
   entries: RankingEntry[];
   source: "supabase" | "local";
+};
+
+export type PublicResult = {
+  userId: string;
+  playerName: string;
+  resultDate: string;
+  journeyDay: number;
+  readingCompleted: boolean;
+  quizScore: number;
+  quizTotal: number;
+  wordAttempts: number;
+  wordSolved: boolean;
+  dailyXp: number;
+  streak: number;
+  shareSlug: string;
 };

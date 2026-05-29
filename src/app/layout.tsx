@@ -17,13 +17,19 @@ export const metadata: Metadata = {
   icons: {
     icon: "/logo-missao-da-fe.png",
     apple: "/logo-missao-da-fe.png"
+  },
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    title: "Missão da Fé",
+    statusBarStyle: "default"
   }
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#F8F5EF"
+  themeColor: "#12355B"
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

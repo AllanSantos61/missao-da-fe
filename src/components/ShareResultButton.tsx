@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { buildWhatsAppShareUrl } from "@/utils/share";
 import type { DayHistory, UserProgress } from "@/types/dailyProgress";
 import { trackEvent } from "@/services/analyticsService";
+import { buildPublicResult, savePublicResult } from "@/services/publicResultService";
 
 type ShareResultButtonProps = {
   progress: UserProgress;
@@ -11,6 +13,24 @@ type ShareResultButtonProps = {
 
 export function ShareResultButton({ progress, todayHistory }: ShareResultButtonProps) {
   const url = typeof window === "undefined" ? "" : window.location.origin;
+  const [publicResultUrl, setPublicResultUrl] = useState("");
+  const fallbackResult = buildPublicResult(progress, todayHistory);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function preparePublicResult() {
+      const result = await savePublicResult(progress, todayHistory);
+      if (isMounted && typeof window !== "undefined") {
+        setPublicResultUrl(`${window.location.origin}/resultado/${result.shareSlug}`);
+      }
+    }
+
+    void preparePublicResult();
+    return () => {
+      isMounted = false;
+    };
+  }, [progress, todayHistory]);
+
   const shareUrl = buildWhatsAppShareUrl({
     readingDone: Boolean(todayHistory.results.gospel),
     quizScore: todayHistory.results.quiz?.quiz?.score ?? 0,
@@ -19,8 +39,9 @@ export function ShareResultButton({ progress, todayHistory }: ShareResultButtonP
     wordSolved: Boolean(todayHistory.results.word?.word?.solved),
     streak: progress.currentStreak,
     xpToday: todayHistory.xpEarned,
-    day: Number(todayHistory.results.gospel?.scoreLabel?.split("/")[0] ?? 1),
-    url
+    day: fallbackResult.journeyDay,
+    url,
+    publicResultUrl
   });
 
   return (
@@ -31,7 +52,7 @@ export function ShareResultButton({ progress, todayHistory }: ShareResultButtonP
           eventName: "whatsapp_shared",
           userId: progress.anonymousUserId,
           playerName: progress.playerName,
-          metadata: { xpToday: todayHistory.xpEarned }
+          metadata: { xpToday: todayHistory.xpEarned, publicResultUrl }
         })
       }
       target="_blank"

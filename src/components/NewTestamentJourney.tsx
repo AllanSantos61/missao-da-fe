@@ -126,6 +126,14 @@ export function NewTestamentJourney({
         <JourneyCalendar365
           days={journey.calendar}
           selectedDay={journey.selectedDay}
+          onMilestoneClick={(dayNumber, title) =>
+            void trackEvent({
+              eventName: "calendar_milestone_clicked",
+              userId: progress.anonymousUserId,
+              playerName: progress.playerName,
+              metadata: { dayNumber, title }
+            })
+          }
           onSelectDay={(dayNumber) => {
             void trackEvent({
               eventName: "calendar_opened",

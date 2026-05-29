@@ -8,6 +8,7 @@ type ShareMessageParams = {
   xpToday: number;
   readingDone: boolean;
   url: string;
+  publicResultUrl?: string;
 };
 
 export function generateShareMessage({
@@ -19,9 +20,11 @@ export function generateShareMessage({
   streak,
   xpToday,
   readingDone,
-  url
+  url,
+  publicResultUrl
 }: ShareMessageParams) {
   const completedAll = readingDone && quizScore === quizTotal && wordSolved;
+  const resultUrl = publicResultUrl || url;
 
   if (completedAll) {
     return [
@@ -33,8 +36,10 @@ export function generateShareMessage({
       `🔥 Sequência: ${streak} dias`,
       `⭐ XP hoje: ${xpToday}`,
       "",
-      "Você consegue completar sua missão de hoje também?",
-      url
+      "Veja meu resultado:",
+      resultUrl,
+      "",
+      "Comece sua jornada também 🙏"
     ].join("\n");
   }
 
@@ -46,8 +51,10 @@ export function generateShareMessage({
     `${wordSolved ? "✅" : "⬜"} Palavra da Fé${wordSolved ? `: ${wordAttempts}/6` : ""}`,
     `⭐ XP hoje: ${xpToday}`,
     "",
-    "Vem completar a sua missão também.",
-    url
+    "Veja meu progresso:",
+    resultUrl,
+    "",
+    "Vem completar a sua missão também."
   ].join("\n");
 }
 
