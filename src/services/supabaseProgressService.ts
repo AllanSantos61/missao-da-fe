@@ -26,6 +26,11 @@ function logSupabaseError(message: string, error: unknown) {
   console.error(`[Supabase] ${message}`, error);
 }
 
+function isMissingColumn(error: unknown, columnName: string) {
+  const supabaseError = error as { code?: string; message?: string };
+  return supabaseError.code === "42703" || Boolean(supabaseError.message?.includes(columnName));
+}
+
 function getWeekStartKey(date = new Date()) {
   const weekStart = new Date(date);
   const day = weekStart.getDay();
@@ -106,11 +111,19 @@ export async function syncProgress(progress: UserProgress) {
     weeklyXP: progress.weeklyXP
   });
 
-  const existingProfile = await supabaseClient
+  let existingProfile = await supabaseClient
     .from("profiles")
     .select("id")
     .eq("user_id", progress.anonymousUserId)
     .maybeSingle();
+
+  if (existingProfile.error && isMissingColumn(existingProfile.error, "user_id")) {
+    existingProfile = await supabaseClient
+      .from("profiles")
+      .select("id")
+      .eq("player_name", progress.playerName)
+      .maybeSingle();
+  }
 
   if (existingProfile.error) {
     logSupabaseError("Select profile failed", existingProfile.error);
@@ -160,7 +173,7 @@ export async function updateWeeklyXP(progress: UserProgress) {
     weeklyXP: progress.weeklyXP
   });
 
-  const { error } = await supabaseClient
+  const updateResult = await supabaseClient
     .from("profiles")
     .update({
       weekly_xp: progress.weeklyXP,
@@ -170,9 +183,24 @@ export async function updateWeeklyXP(progress: UserProgress) {
     })
     .eq("user_id", progress.anonymousUserId);
 
-  if (error) {
-    logSupabaseError("Update weekly XP failed", error);
-    throw error;
+  if (updateResult.error && isMissingColumn(updateResult.error, "user_id")) {
+    const fallbackResult = await supabaseClient
+      .from("profiles")
+      .update({
+        weekly_xp: progress.weeklyXP,
+        total_xp: progress.totalXP,
+        current_streak: progress.currentStreak,
+        best_streak: progress.bestStreak
+      })
+      .eq("player_name", progress.playerName);
+
+    if (fallbackResult.error) {
+      logSupabaseError("Update weekly XP failed", fallbackResult.error);
+      throw fallbackResult.error;
+    }
+  } else if (updateResult.error) {
+    logSupabaseError("Update weekly XP failed", updateResult.error);
+    throw updateResult.error;
   }
   logSupabase("Insert success", { table: "profiles", mode: "weekly_xp_update" });
 }

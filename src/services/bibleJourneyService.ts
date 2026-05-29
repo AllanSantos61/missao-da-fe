@@ -1,4 +1,3 @@
-import { fallbackNewTestamentReadings } from "@/data/newTestamentReadings";
 import { supabaseClient } from "@/lib/supabaseClient";
 import { getJourneyMission } from "@/services/journeyContentService";
 import * as localBibleJourneyService from "@/services/localBibleJourneyService";
@@ -22,39 +21,6 @@ function logJourney(message: string, details?: unknown) {
 function logJourneyError(message: string, error: unknown) {
   console.error(`[Journey/Supabase] ${message}`, error);
 }
-
-type ReadingPlanRow = {
-  id: string;
-  day_number: number;
-  reference: string | null;
-  book: string | null;
-  chapter_start: number | null;
-  verse_start: number | null;
-  chapter_end: number | null;
-  verse_end: number | null;
-  title: string | null;
-  estimated_minutes: number | null;
-  xp_reward: number | null;
-  active: boolean | null;
-  reading_id?: string | null;
-  bible_readings?: BibleReadingRow | null;
-};
-
-type BibleReadingRow = {
-  id: string;
-  order_index: number;
-  testament: "novo_testamento";
-  book: string;
-  chapter_start: number;
-  verse_start: number | null;
-  chapter_end: number | null;
-  verse_end: number | null;
-  reference: string;
-  title: string | null;
-  content: string | null;
-  source: string | null;
-  estimated_minutes: number | null;
-};
 
 type JourneyProgressRow = {
   user_id?: string | null;
@@ -105,64 +71,6 @@ export function getJourneyDayStatus(
   if (completedDays.includes(dayNumber)) return "completed";
   if (dayNumber > availableJourneyDay) return "locked";
   return dayNumber === availableJourneyDay ? "available" : "pending";
-}
-
-function fallbackReading(dayNumber: number): BibleReading {
-  const fallback =
-    fallbackNewTestamentReadings.find((reading) => reading.orderIndex === dayNumber) ??
-    fallbackNewTestamentReadings[fallbackNewTestamentReadings.length - 1];
-
-  return {
-    ...fallback,
-    orderIndex: dayNumber,
-    reference: fallback.orderIndex === dayNumber ? fallback.reference : `Novo Testamento ${dayNumber}`,
-    title: fallback.orderIndex === dayNumber ? fallback.title : `Dia ${dayNumber} da Jornada`,
-    xpReward: fallback.xpReward ?? READING_XP
-  };
-}
-
-function mapBibleReading(row: BibleReadingRow, dayNumber = row.order_index, xpReward = READING_XP): BibleReading {
-  return {
-    id: row.id,
-    orderIndex: dayNumber,
-    testament: row.testament,
-    book: row.book,
-    chapterStart: row.chapter_start,
-    verseStart: row.verse_start,
-    chapterEnd: row.chapter_end,
-    verseEnd: row.verse_end,
-    reference: row.reference,
-    title: row.title ?? row.reference,
-    content: row.content,
-    source: row.source,
-    estimatedMinutes: row.estimated_minutes ?? 10,
-    xpReward
-  };
-}
-
-function mapPlanReading(row: ReadingPlanRow): BibleReading {
-  if (row.reference && row.book && row.chapter_start) {
-    return {
-      id: row.id,
-      orderIndex: row.day_number,
-      testament: "novo_testamento",
-      book: row.book,
-      chapterStart: row.chapter_start,
-      verseStart: row.verse_start,
-      chapterEnd: row.chapter_end,
-      verseEnd: row.verse_end,
-      reference: row.reference,
-      title: row.title ?? row.reference,
-      estimatedMinutes: row.estimated_minutes ?? 10,
-      xpReward: row.xp_reward ?? READING_XP
-    };
-  }
-
-  if (row.bible_readings) {
-    return mapBibleReading(row.bible_readings, row.day_number, row.xp_reward ?? READING_XP);
-  }
-
-  return fallbackReading(row.day_number);
 }
 
 function buildProgress(playerName: string, row: JourneyProgressRow, completedRows: JourneyDayRow[]): BibleProgress {
@@ -289,28 +197,6 @@ async function getCompletedDays(userIdInput: string, playerName: string): Promis
   if (result.error) throw result.error;
   logJourney("Day status loaded", { playerName, rows: result.data?.length ?? 0 });
   return (result.data ?? []) as JourneyDayRow[];
-}
-
-async function getReading(dayNumber: number): Promise<BibleReading> {
-  if (!supabaseClient) throw new Error("Supabase not configured.");
-
-  const plan = await supabaseClient
-    .from("reading_plan")
-    .select("*, bible_readings(*)")
-    .eq("day_number", dayNumber)
-    .eq("active", true)
-    .maybeSingle();
-
-  if (!plan.error && plan.data) return mapPlanReading(plan.data as ReadingPlanRow);
-
-  const legacy = await supabaseClient
-    .from("bible_readings")
-    .select("*")
-    .eq("order_index", dayNumber)
-    .maybeSingle();
-
-  if (legacy.error) throw legacy.error;
-  return legacy.data ? mapBibleReading(legacy.data as BibleReadingRow, dayNumber, READING_XP) : fallbackReading(dayNumber);
 }
 
 async function buildState(userId: string, playerName: string, selectedDay?: number): Promise<CurrentReadingState> {

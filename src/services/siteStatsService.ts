@@ -1,6 +1,7 @@
 import { supabaseClient } from "@/lib/supabaseClient";
 
 const LOCAL_VISITS_KEY = "missaoDaFeLocalVisits";
+const GLOBAL_STATS_ID = "global";
 
 function getLocalVisits() {
   if (typeof window === "undefined") return 0;
@@ -14,6 +15,11 @@ function incrementLocalVisits() {
   return nextVisits;
 }
 
+function isMissingStatsTable(error: unknown) {
+  const supabaseError = error as { code?: string; message?: string };
+  return supabaseError.code === "42P01" || supabaseError.code === "PGRST205";
+}
+
 export async function incrementVisitCounter() {
   if (!supabaseClient) {
     return incrementLocalVisits();
@@ -23,8 +29,7 @@ export async function incrementVisitCounter() {
     const currentStats = await supabaseClient
       .from("site_stats")
       .select("id, total_visits")
-      .order("updated_at", { ascending: false })
-      .limit(1)
+      .eq("id", GLOBAL_STATS_ID)
       .maybeSingle();
 
     if (currentStats.error) throw currentStats.error;
@@ -46,6 +51,7 @@ export async function incrementVisitCounter() {
     const { data, error } = await supabaseClient
       .from("site_stats")
       .insert({
+        id: GLOBAL_STATS_ID,
         total_visits: 1,
         updated_at: new Date().toISOString()
       })
@@ -55,7 +61,9 @@ export async function incrementVisitCounter() {
     if (error) throw error;
     return Number(data.total_visits ?? 1);
   } catch (error) {
-    console.warn("Visit counter failed; using localStorage fallback.", error);
+    if (process.env.NODE_ENV !== "production" && !isMissingStatsTable(error)) {
+      console.info("[VisitCounter] Supabase unavailable; using local fallback.");
+    }
     return incrementLocalVisits();
   }
 }

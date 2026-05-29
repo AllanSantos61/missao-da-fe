@@ -24,6 +24,11 @@ type TrackEventParams = {
   metadata?: Record<string, unknown>;
 };
 
+function isMissingEventsTable(error: unknown) {
+  const supabaseError = error as { code?: string; message?: string };
+  return supabaseError.code === "42P01" || supabaseError.code === "PGRST205";
+}
+
 export async function trackEvent({ eventName, userId, playerName, metadata = {} }: TrackEventParams) {
   const payload = {
     event_name: eventName,
@@ -39,8 +44,11 @@ export async function trackEvent({ eventName, userId, playerName, metadata = {} 
   if (!supabaseClient) return;
 
   try {
-    await supabaseClient.from("app_events").insert(payload);
+    const { error } = await supabaseClient.from("app_events").insert(payload);
+    if (error) throw error;
   } catch (error) {
-    console.warn("[Analytics] Event persistence failed", { eventName, error });
+    if (process.env.NODE_ENV !== "production" && !isMissingEventsTable(error)) {
+      console.info("[Analytics] Event persistence skipped", { eventName });
+    }
   }
 }
