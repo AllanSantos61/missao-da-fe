@@ -35,7 +35,10 @@ export type DayHistory = {
 
 export type UserProgress = {
   activeDate: string;
+  anonymousUserId: string;
+  localUserId: string;
   playerName: string;
+  onboardingCompleted: boolean;
   totalXP: number;
   weeklyXP: number;
   currentStreak: number;

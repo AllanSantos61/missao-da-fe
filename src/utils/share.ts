@@ -1,57 +1,56 @@
 type ShareMessageParams = {
-  gospelDone: boolean;
+  day?: number;
   quizScore: number;
   quizTotal: number;
   wordAttempts: number;
   wordSolved: boolean;
   streak: number;
   xpToday: number;
-  journeyProgress?: string;
+  readingDone: boolean;
   url: string;
 };
 
-export function buildWhatsAppShareUrl({
-  gospelDone,
+export function generateShareMessage({
+  day,
   quizScore,
   quizTotal,
   wordAttempts,
   wordSolved,
   streak,
   xpToday,
-  journeyProgress,
+  readingDone,
   url
 }: ShareMessageParams) {
-  const completedCount = [gospelDone, quizScore === quizTotal, wordSolved].filter(Boolean).length;
-  const premiumMessage = [
-    "🙏 Missão da Fé concluída!",
-    "",
-    "📖 Jornada do Novo Testamento",
-    `🧠 Quiz da Fé: ${quizScore}/${quizTotal}`,
-    `✝ Palavra da Fé: ${wordAttempts}/6`,
-    "",
-    `🔥 Sequência: ${streak} dias`,
-    `⭐ XP ganho hoje: ${xpToday}`,
-    journeyProgress ? `📚 Progresso: ${journeyProgress}` : null,
-    "",
-    "Você consegue completar a missão de hoje também?",
-    url
-  ].filter(Boolean);
+  const completedAll = readingDone && quizScore === quizTotal && wordSolved;
 
-  const partialMessage = [
-    "🙏 Comecei minha Missão da Fé de hoje",
+  if (completedAll) {
+    return [
+      "🙏 Missão da Fé concluída!",
+      "",
+      `📖 Jornada: Dia ${day ?? 1}/365`,
+      `🧠 Quiz: ${quizScore}/${quizTotal}`,
+      `✝️ Palavra: ${wordAttempts}/6`,
+      `🔥 Sequência: ${streak} dias`,
+      `⭐ XP hoje: ${xpToday}`,
+      "",
+      "Você consegue completar sua missão de hoje também?",
+      url
+    ].join("\n");
+  }
+
+  return [
+    "🙏 Estou fazendo minha Missão da Fé de hoje",
     "",
-    `${gospelDone ? "✅" : "⬜"} Jornada do Novo Testamento`,
-    `${quizScore > 0 ? "✅" : "⬜"} Quiz da Fé: ${quizScore}/${quizTotal}`,
+    `${readingDone ? "✅" : "⬜"} Jornada: Dia ${day ?? 1}/365`,
+    `${quizScore > 0 ? "✅" : "⬜"} Quiz: ${quizScore}/${quizTotal}`,
     `${wordSolved ? "✅" : "⬜"} Palavra da Fé${wordSolved ? `: ${wordAttempts}/6` : ""}`,
+    `⭐ XP hoje: ${xpToday}`,
     "",
-    `🔥 Sequência: ${streak} dias`,
-    `⭐ XP de hoje: ${xpToday}`,
-    "",
-    "Vem fazer a sua também?",
+    "Vem completar a sua missão também.",
     url
-  ];
+  ].join("\n");
+}
 
-  const message = (completedCount === 3 ? premiumMessage : partialMessage).join("\n");
-
-  return `https://wa.me/?text=${encodeURIComponent(message)}`;
+export function buildWhatsAppShareUrl(params: ShareMessageParams) {
+  return `https://wa.me/?text=${encodeURIComponent(generateShareMessage(params))}`;
 }

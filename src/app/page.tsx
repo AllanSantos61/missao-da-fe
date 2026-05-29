@@ -6,6 +6,7 @@ import { ChallengeCard } from "@/components/ChallengeCard";
 import { DailyProgressHeader } from "@/components/DailyProgressHeader";
 import { MissaoDaFeLogo } from "@/components/MissaoDaFeLogo";
 import { NewTestamentJourney } from "@/components/NewTestamentJourney";
+import { OnboardingModal } from "@/components/OnboardingModal";
 import { PlayerNameModal } from "@/components/PlayerNameModal";
 import { QuizFaith } from "@/components/QuizFaith";
 import { RankingModal } from "@/components/RankingModal";
@@ -15,6 +16,7 @@ import { useDailyChallengeContent } from "@/hooks/useDailyChallengeContent";
 import { useBibleJourney } from "@/hooks/useBibleJourney";
 import { useDailyProgress } from "@/hooks/useDailyProgress";
 import { useVisitCounter } from "@/hooks/useVisitCounter";
+import { trackEvent } from "@/services/analyticsService";
 import { readingXP } from "@/services/bibleJourneyService";
 import type { ChallengeId, DailyChallengeResult } from "@/types/dailyProgress";
 
@@ -39,7 +41,7 @@ export default function Home() {
   const [showRankingModal, setShowRankingModal] = useState(false);
   const visits = useVisitCounter();
   const dailyChallengeContent = useDailyChallengeContent();
-  const { progress, todayHistory, isLoaded, refreshDay, completeChallenge, updatePlayerName } =
+  const { progress, todayHistory, isLoaded, refreshDay, completeChallenge, updatePlayerName, completeOnboarding } =
     useDailyProgress();
   const {
     journey,
@@ -48,11 +50,29 @@ export default function Home() {
     selectJourneyDay,
     completeReading,
     completeJourneyPart
-  } = useBibleJourney(progress?.playerName ?? "");
+  } = useBibleJourney(progress?.anonymousUserId ?? "", progress?.playerName ?? "");
 
   useEffect(() => {
     refreshDay();
   }, [refreshDay]);
+
+  useEffect(() => {
+    if (!progress) return;
+    void trackEvent({
+      eventName: "app_opened",
+      userId: progress.anonymousUserId,
+      playerName: progress.playerName
+    });
+  }, [progress]);
+
+  useEffect(() => {
+    if (!progress || progress.onboardingCompleted) return;
+    void trackEvent({
+      eventName: "onboarding_started",
+      userId: progress.anonymousUserId,
+      playerName: progress.playerName
+    });
+  }, [progress]);
 
   const completedCount = todayHistory?.completedChallenges.length ?? 0;
 
@@ -67,12 +87,60 @@ export default function Home() {
 
   function handleComplete(result: DailyChallengeResult) {
     completeChallenge(result.id, result);
+    if (progress) {
+      const eventName =
+        result.id === "gospel" ? "reading_completed" : result.id === "quiz" ? "quiz_completed" : "word_completed";
+      void trackEvent({
+        eventName,
+        userId: progress.anonymousUserId,
+        playerName: progress.playerName,
+        metadata: { xpEarned: result.xpEarned, scoreLabel: result.scoreLabel }
+      });
+    }
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function goHome() {
     setSelectedChallenge(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function handlePlayerNameSave(playerName: string) {
+    updatePlayerName(playerName);
+    void trackEvent({
+      eventName: "player_name_saved",
+      userId: progress?.anonymousUserId,
+      playerName
+    });
+  }
+
+  function openRanking() {
+    setShowRankingModal(true);
+    void trackEvent({
+      eventName: "ranking_opened",
+      userId: progress?.anonymousUserId,
+      playerName: progress?.playerName
+    });
+  }
+
+  function selectChallenge(challengeId: ChallengeId) {
+    setSelectedChallenge(challengeId);
+    const eventName =
+      challengeId === "gospel" ? "reading_started" : challengeId === "quiz" ? "quiz_started" : "word_started";
+    void trackEvent({
+      eventName,
+      userId: progress?.anonymousUserId,
+      playerName: progress?.playerName,
+      metadata: { journeyDay: journey?.selectedDay }
+    });
+    if (challengeId === "gospel") {
+      void trackEvent({
+        eventName: "journey_started",
+        userId: progress?.anonymousUserId,
+        playerName: progress?.playerName,
+        metadata: { journeyDay: journey?.selectedDay }
+      });
+    }
   }
 
   function getNextMission(currentChallenge: ChallengeId) {
@@ -161,7 +229,39 @@ export default function Home() {
     handleComplete(result);
     if (journey) {
       void completeJourneyPart(journey.selectedDay, part, result.xpEarned);
+      const allDone =
+        Boolean(selectedJourneyDay?.readingCompleted) &&
+        (part === "quiz" || Boolean(selectedJourneyDay?.quizCompleted)) &&
+        (part === "word" || Boolean(selectedJourneyDay?.wordCompleted));
+      if (allDone) {
+        void trackEvent({
+          eventName: "mission_completed",
+          userId: progress?.anonymousUserId,
+          playerName: progress?.playerName,
+          metadata: { journeyDay: journey.selectedDay }
+        });
+      }
     }
+  }
+
+  function handleOnboardingComplete(playerName?: string) {
+    completeOnboarding(playerName);
+    void trackEvent({
+      eventName: "onboarding_completed",
+      userId: progress?.anonymousUserId,
+      playerName,
+      metadata: { skipped: false }
+    });
+  }
+
+  function handleOnboardingSkip() {
+    completeOnboarding();
+    void trackEvent({
+      eventName: "onboarding_completed",
+      userId: progress?.anonymousUserId,
+      playerName: progress?.playerName,
+      metadata: { skipped: true }
+    });
   }
 
   return (
@@ -171,9 +271,9 @@ export default function Home() {
         playerName={progress.playerName}
         visits={visits}
         onHome={goHome}
-        onSelectChallenge={setSelectedChallenge}
+        onSelectChallenge={selectChallenge}
         onOpenName={() => setShowNameModal(true)}
-        onOpenRanking={() => setShowRankingModal(true)}
+        onOpenRanking={openRanking}
       />
 
       <div className="mx-auto mt-4 flex w-full max-w-3xl flex-col gap-5">
@@ -181,19 +281,17 @@ export default function Home() {
           <>
             <section className="flex flex-col items-center rounded-[2rem] bg-white/58 px-5 py-7 text-center shadow-[0_18px_50px_rgba(18,53,91,0.08)] ring-1 ring-white/80">
               <MissaoDaFeLogo size="home" />
-              <p className="mt-4 max-w-xs text-balance text-lg font-semibold leading-7 text-ink/72">
-                O desafio diário da fé em 3 minutos.
+              <p className="mt-4 max-w-md text-balance text-xl font-black leading-8 text-navy">
+                Leia o Novo Testamento em 365 dias, com uma missão por dia.
               </p>
             </section>
 
-            <DailyProgressHeader progress={progress} todayHistory={todayHistory} />
-
             {journey ? (
-              <section className="rounded-[1.75rem] bg-navy p-5 text-white shadow-soft">
+              <section className="rounded-[2rem] bg-navy p-5 text-white shadow-soft">
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-gold">Jornada da Fé</p>
-                <h2 className="mt-2 text-3xl font-black leading-tight">Dia {journey.progress.currentJourneyDay}</h2>
+                <h2 className="mt-2 text-4xl font-black leading-tight">Dia {journey.progress.currentJourneyDay}</h2>
                 <p className="mt-3 max-w-xl text-sm leading-6 text-white/78">
-                  Leia o Novo Testamento em 365 dias, no seu ritmo, sem perder a sequência da missão.
+                  Sua missão de hoje une leitura, quiz e Palavra da Fé em um caminho contínuo pelo Novo Testamento.
                 </p>
                 <div className="mt-5 h-3 overflow-hidden rounded-full bg-white/12">
                   <div
@@ -201,7 +299,7 @@ export default function Home() {
                     style={{ width: `${Math.round((journey.progress.completedReadings / 365) * 100)}%` }}
                   />
                 </div>
-                <div className="mt-5 grid grid-cols-2 gap-2 text-center text-sm sm:grid-cols-4">
+                <div className="mt-5 grid grid-cols-2 gap-2 text-center text-sm sm:grid-cols-5">
                   <div className="rounded-2xl bg-white/10 p-3">
                     <p className="text-white/60">Progresso</p>
                     <p className="font-black">{journey.progress.completedReadings}/365</p>
@@ -218,6 +316,10 @@ export default function Home() {
                     <p className="text-white/60">Sequência</p>
                     <p className="font-black">{journey.progress.currentStreak}</p>
                   </div>
+                  <div className="rounded-2xl bg-white/10 p-3">
+                    <p className="text-white/60">XP total</p>
+                    <p className="font-black">{progress.totalXP}</p>
+                  </div>
                 </div>
                 {journey.progress.pendingCount > 1 ? (
                   <div className="mt-5 rounded-2xl bg-gold/15 p-4 text-sm font-bold leading-6 text-white">
@@ -225,15 +327,15 @@ export default function Home() {
                   </div>
                 ) : null}
                 <button
-                  onClick={() => setSelectedChallenge("gospel")}
+                  onClick={() => selectChallenge("gospel")}
                   className="mt-5 w-full rounded-2xl bg-gold px-5 py-4 font-black text-navy shadow-card transition hover:-translate-y-0.5"
                 >
-                  {journey.progress.pendingCount > 1 ? "Recuperar missão pendente" : "Continuar jornada"}
+                  {journey.progress.pendingCount > 1 ? "Recuperar missão pendente" : "Continuar Jornada"}
                 </button>
               </section>
             ) : null}
 
-            <section className="grid gap-3 sm:grid-cols-3">
+            <section className="grid gap-3 sm:grid-cols-3" aria-label="Partes da missão diária">
               {challengeCards.map((card) => (
                 <ChallengeCard
                   key={card.id}
@@ -242,7 +344,7 @@ export default function Home() {
                   xp={challengeXp[card.id]}
                   completed={todayHistory.completedChallenges.includes(card.id)}
                   result={todayHistory.results[card.id]}
-                  onOpen={setSelectedChallenge}
+                  onOpen={selectChallenge}
                 />
               ))}
             </section>
@@ -335,13 +437,17 @@ export default function Home() {
       {showNameModal ? (
         <PlayerNameModal
           currentName={progress.playerName}
-          onSave={updatePlayerName}
+          onSave={handlePlayerNameSave}
           onClose={() => setShowNameModal(false)}
         />
       ) : null}
 
       {showRankingModal ? (
         <RankingModal progress={progress} onClose={() => setShowRankingModal(false)} />
+      ) : null}
+
+      {!progress.onboardingCompleted ? (
+        <OnboardingModal onComplete={handleOnboardingComplete} onSkip={handleOnboardingSkip} />
       ) : null}
     </main>
   );

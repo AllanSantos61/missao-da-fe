@@ -10,6 +10,14 @@ import { getPreviousDayKey, getTodayKey } from "@/utils/dateUtils";
 const STORAGE_KEY = "missionFaithUser";
 const LEGACY_STORAGE_KEY = "missaoDaFeProgress";
 
+function createLocalUserId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+
+  return `local-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
 function createDayHistory(date: string): DayHistory {
   return {
     date,
@@ -22,7 +30,10 @@ function createDayHistory(date: string): DayHistory {
 function createInitialProgress(today = getTodayKey()): UserProgress {
   return {
     activeDate: today,
+    anonymousUserId: createLocalUserId(),
+    localUserId: createLocalUserId(),
     playerName: "",
+    onboardingCompleted: false,
     totalXP: 0,
     weeklyXP: 0,
     currentStreak: 0,
@@ -61,6 +72,9 @@ export function resetDailyStateIfNeeded(progress: UserProgress): UserProgress {
 
   return {
     ...progress,
+    anonymousUserId: progress.anonymousUserId || createLocalUserId(),
+    localUserId: progress.localUserId || progress.anonymousUserId || createLocalUserId(),
+    onboardingCompleted: Boolean(progress.onboardingCompleted),
     activeDate: today,
     weeklyXP: calculateWeeklyXP(dailyHistory, today),
     dailyHistory
@@ -94,6 +108,17 @@ export function updatePlayerName(progress: UserProgress, playerName: string) {
   const nextProgress = {
     ...progress,
     playerName: playerName.trim().slice(0, 32)
+  };
+
+  saveUserProgress(nextProgress);
+  return nextProgress;
+}
+
+export function completeOnboarding(progress: UserProgress, playerName?: string) {
+  const nextProgress = {
+    ...progress,
+    onboardingCompleted: true,
+    playerName: playerName !== undefined ? playerName.trim().slice(0, 32) : progress.playerName
   };
 
   saveUserProgress(nextProgress);

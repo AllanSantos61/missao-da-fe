@@ -62,7 +62,8 @@ create table if not exists public.journey_quiz_questions (
 
 create table if not exists public.user_journey_progress (
   id uuid primary key default gen_random_uuid(),
-  player_name text not null unique,
+  user_id text unique,
+  player_name text not null,
   journey_start_date date not null default current_date,
   current_journey_day integer not null default 1,
   highest_unlocked_day integer not null default 1,
@@ -85,6 +86,7 @@ create table if not exists public.user_journey_progress (
 
 create table if not exists public.user_journey_day_status (
   id uuid primary key default gen_random_uuid(),
+  user_id text,
   player_name text not null,
   day_number integer not null,
   status text not null,
@@ -97,7 +99,7 @@ create table if not exists public.user_journey_day_status (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
 
-  constraint user_journey_day_unique unique (player_name, day_number),
+  constraint user_journey_day_unique unique (user_id, day_number),
   constraint user_journey_day_player_name_not_blank check (char_length(trim(player_name)) > 0),
   constraint user_journey_day_number_range check (day_number between 1 and 365),
   constraint user_journey_day_status_valid check (status in ('locked', 'available', 'pending', 'completed')),
@@ -108,6 +110,35 @@ create table if not exists public.user_journey_day_status (
   )
 );
 
+alter table public.user_journey_progress add column if not exists user_id text;
+alter table public.user_journey_progress add column if not exists local_user_id text;
+alter table public.user_journey_day_status add column if not exists user_id text;
+alter table public.user_journey_day_status add column if not exists local_user_id text;
+
+alter table public.user_journey_progress drop constraint if exists user_journey_progress_player_name_key;
+alter table public.user_journey_day_status drop constraint if exists user_journey_day_status_player_name_day_number_key;
+alter table public.user_journey_day_status drop constraint if exists user_journey_day_unique;
+create unique index if not exists idx_user_journey_progress_user_id_unique
+  on public.user_journey_progress(user_id)
+  where user_id is not null;
+create unique index if not exists idx_user_journey_day_status_user_day_unique
+  on public.user_journey_day_status(user_id, day_number)
+  where user_id is not null;
+
+create table if not exists public.app_events (
+  id uuid primary key default gen_random_uuid(),
+  event_name text not null,
+  user_id text,
+  player_name text,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  constraint app_events_event_name_not_blank check (char_length(trim(event_name)) > 0)
+);
+
+alter table if exists public.profiles add column if not exists user_id text;
+alter table if exists public.profiles add column if not exists local_user_id text;
+create index if not exists idx_profiles_user_id on public.profiles(user_id);
+
 create index if not exists idx_journey_days_day_number on public.journey_days(day_number);
 create index if not exists idx_journey_days_active on public.journey_days(active);
 create index if not exists idx_journey_days_reference on public.journey_days(bible_reference);
@@ -116,12 +147,17 @@ create index if not exists idx_journey_quiz_day_number on public.journey_quiz_qu
 create index if not exists idx_journey_quiz_journey_day_id on public.journey_quiz_questions(journey_day_id);
 
 create index if not exists idx_user_journey_progress_player_name on public.user_journey_progress(player_name);
+create index if not exists idx_user_journey_progress_user_id on public.user_journey_progress(user_id);
 create index if not exists idx_user_journey_progress_weekly_xp on public.user_journey_progress(weekly_xp desc);
 
 create index if not exists idx_user_journey_day_status_player_name on public.user_journey_day_status(player_name);
+create index if not exists idx_user_journey_day_status_user_id on public.user_journey_day_status(user_id);
 create index if not exists idx_user_journey_day_status_player_day on public.user_journey_day_status(player_name, day_number);
 create index if not exists idx_user_journey_day_status_status on public.user_journey_day_status(status);
 create index if not exists idx_user_journey_day_status_completed_date on public.user_journey_day_status(completed_date);
+create index if not exists idx_app_events_event_name on public.app_events(event_name);
+create index if not exists idx_app_events_user_id on public.app_events(user_id);
+create index if not exists idx_app_events_created_at on public.app_events(created_at desc);
 
 drop trigger if exists trg_journey_days_updated_at on public.journey_days;
 create trigger trg_journey_days_updated_at
@@ -147,6 +183,7 @@ alter table public.journey_days enable row level security;
 alter table public.journey_quiz_questions enable row level security;
 alter table public.user_journey_progress enable row level security;
 alter table public.user_journey_day_status enable row level security;
+alter table public.app_events enable row level security;
 
 drop policy if exists "anon_select_journey_days" on public.journey_days;
 drop policy if exists "anon_select_journey_quiz_questions" on public.journey_quiz_questions;
@@ -156,6 +193,7 @@ drop policy if exists "anon_update_user_journey_progress" on public.user_journey
 drop policy if exists "anon_select_user_journey_day_status" on public.user_journey_day_status;
 drop policy if exists "anon_insert_user_journey_day_status" on public.user_journey_day_status;
 drop policy if exists "anon_update_user_journey_day_status" on public.user_journey_day_status;
+drop policy if exists "anon_insert_app_events" on public.app_events;
 
 create policy "anon_select_journey_days"
 on public.journey_days
@@ -207,8 +245,15 @@ to anon
 using (true)
 with check (true);
 
+create policy "anon_insert_app_events"
+on public.app_events
+for insert
+to anon
+with check (true);
+
 grant usage on schema public to anon;
 grant select on public.journey_days to anon;
 grant select on public.journey_quiz_questions to anon;
 grant select, insert, update on public.user_journey_progress to anon;
 grant select, insert, update on public.user_journey_day_status to anon;
+grant insert on public.app_events to anon;

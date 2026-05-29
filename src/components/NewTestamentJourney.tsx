@@ -4,6 +4,7 @@ import { ChallengeActionBar } from "@/components/ChallengeActionBar";
 import { ChallengeStatusStrip } from "@/components/ChallengeStatusStrip";
 import { JourneyCalendar365 } from "@/components/JourneyCalendar365";
 import { useBibleApiReading } from "@/hooks/useBibleApiReading";
+import { trackEvent } from "@/services/analyticsService";
 import { readingXP } from "@/services/bibleJourneyService";
 import type { CurrentReadingState, JourneyDayStatus } from "@/types/bibleJourney";
 import type { DailyChallengeResult, DayHistory, UserProgress } from "@/types/dailyProgress";
@@ -122,7 +123,19 @@ export function NewTestamentJourney({
       </div>
 
       <div className="mt-5">
-        <JourneyCalendar365 days={journey.calendar} selectedDay={journey.selectedDay} onSelectDay={onSelectDay} />
+        <JourneyCalendar365
+          days={journey.calendar}
+          selectedDay={journey.selectedDay}
+          onSelectDay={(dayNumber) => {
+            void trackEvent({
+              eventName: "calendar_opened",
+              userId: progress.anonymousUserId,
+              playerName: progress.playerName,
+              metadata: { dayNumber }
+            });
+            onSelectDay(dayNumber);
+          }}
+        />
       </div>
 
       <article className="mt-5 rounded-3xl border border-navy/10 bg-parchment p-5">

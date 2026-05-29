@@ -28,6 +28,12 @@ export function updatePlayerName(progress: UserProgress, playerName: string) {
   return nextProgress;
 }
 
+export function completeOnboarding(progress: UserProgress, playerName?: string) {
+  const nextProgress = localProgressService.completeOnboarding(progress, playerName);
+  syncInBackground(() => supabaseProgressService.syncProgress(nextProgress));
+  return nextProgress;
+}
+
 export function addXP(progress: UserProgress, xp: number) {
   const nextProgress = localProgressService.addXP(progress, xp);
   syncInBackground(() => supabaseProgressService.syncProgress(nextProgress));

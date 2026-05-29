@@ -109,7 +109,7 @@ export async function syncProgress(progress: UserProgress) {
   const existingProfile = await supabaseClient
     .from("profiles")
     .select("id")
-    .eq("player_name", progress.playerName)
+    .eq("user_id", progress.anonymousUserId)
     .maybeSingle();
 
   if (existingProfile.error) {
@@ -118,6 +118,8 @@ export async function syncProgress(progress: UserProgress) {
   }
 
   const payload = {
+    user_id: progress.anonymousUserId,
+    local_user_id: progress.localUserId,
     player_name: progress.playerName,
     total_xp: progress.totalXP,
     weekly_xp: progress.weeklyXP,
@@ -166,7 +168,7 @@ export async function updateWeeklyXP(progress: UserProgress) {
       current_streak: progress.currentStreak,
       best_streak: progress.bestStreak
     })
-    .eq("player_name", progress.playerName);
+    .eq("user_id", progress.anonymousUserId);
 
   if (error) {
     logSupabaseError("Update weekly XP failed", error);

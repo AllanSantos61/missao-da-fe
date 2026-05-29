@@ -57,6 +57,7 @@ type BibleReadingRow = {
 };
 
 type JourneyProgressRow = {
+  user_id?: string | null;
   player_name: string;
   journey_start_date: string;
   current_journey_day?: number | null;
@@ -72,6 +73,7 @@ type JourneyProgressRow = {
 
 type JourneyDayRow = {
   id?: string;
+  user_id?: string | null;
   player_name: string;
   day_number: number;
   status: JourneyDayStatus;
@@ -85,6 +87,10 @@ type JourneyDayRow = {
 
 function getPlayerName(playerName: string) {
   return playerName.trim() || "visitante";
+}
+
+function getUserId(userId: string) {
+  return userId.trim() || "anonymous";
 }
 
 function getAvailableJourneyDay(journeyStartDate: string) {
@@ -212,14 +218,15 @@ function buildCalendar(progress: BibleProgress, completedRows: JourneyDayRow[]):
   });
 }
 
-async function getOrCreateJourneyProgress(playerName: string): Promise<JourneyProgressRow> {
+async function getOrCreateJourneyProgress(userIdInput: string, playerName: string): Promise<JourneyProgressRow> {
   if (!supabaseClient) throw new Error("Supabase not configured.");
 
-  logJourney("Fetching user_journey_progress", { playerName });
+  const userId = getUserId(userIdInput);
+  logJourney("Fetching user_journey_progress", { userId, playerName });
   const existing = await supabaseClient
     .from("user_journey_progress")
     .select("*")
-    .eq("player_name", playerName)
+    .eq("user_id", userId)
     .maybeSingle();
 
   if (existing.error) throw existing.error;
@@ -240,7 +247,7 @@ async function getOrCreateJourneyProgress(playerName: string): Promise<JourneyPr
         highest_unlocked_day: highestUnlockedDay,
         updated_at: new Date().toISOString()
       })
-      .eq("player_name", playerName);
+      .eq("user_id", userId);
     return { ...existingRow, last_access_date: today, highest_unlocked_day: highestUnlockedDay };
   }
 
@@ -249,6 +256,7 @@ async function getOrCreateJourneyProgress(playerName: string): Promise<JourneyPr
     .from("user_journey_progress")
     .insert({
       player_name: playerName,
+      user_id: userId,
       journey_start_date: today,
       current_journey_day: 1,
       highest_unlocked_day: 1,
@@ -267,14 +275,15 @@ async function getOrCreateJourneyProgress(playerName: string): Promise<JourneyPr
   return created.data as JourneyProgressRow;
 }
 
-async function getCompletedDays(playerName: string): Promise<JourneyDayRow[]> {
+async function getCompletedDays(userIdInput: string, playerName: string): Promise<JourneyDayRow[]> {
   if (!supabaseClient) throw new Error("Supabase not configured.");
 
-  logJourney("Fetching user_journey_day_status", { playerName });
+  const userId = getUserId(userIdInput);
+  logJourney("Fetching user_journey_day_status", { userId, playerName });
   const result = await supabaseClient
     .from("user_journey_day_status")
     .select("*")
-    .eq("player_name", playerName)
+    .eq("user_id", userId)
     .order("day_number", { ascending: true });
 
   if (result.error) throw result.error;
@@ -304,10 +313,10 @@ async function getReading(dayNumber: number): Promise<BibleReading> {
   return legacy.data ? mapBibleReading(legacy.data as BibleReadingRow, dayNumber, READING_XP) : fallbackReading(dayNumber);
 }
 
-async function buildState(playerName: string, selectedDay?: number): Promise<CurrentReadingState> {
-  logJourney("Building journey state", { playerName, selectedDay });
-  const progressRow = await getOrCreateJourneyProgress(playerName);
-  const completedRows = await getCompletedDays(playerName);
+async function buildState(userId: string, playerName: string, selectedDay?: number): Promise<CurrentReadingState> {
+  logJourney("Building journey state", { userId, playerName, selectedDay });
+  const progressRow = await getOrCreateJourneyProgress(userId, playerName);
+  const completedRows = await getCompletedDays(userId, playerName);
   const progress = buildProgress(playerName, progressRow, completedRows);
   const dayNumber = Math.min(Math.max(selectedDay ?? progress.currentJourneyDay, 1), TOTAL_READINGS);
   logJourney("Calculated journey day", {
@@ -353,20 +362,23 @@ async function buildState(playerName: string, selectedDay?: number): Promise<Cur
   };
 }
 
-async function syncProfileXP(playerName: string, xp: number, currentStreak: number, bestStreak: number) {
+async function syncProfileXP(userIdInput: string, playerName: string, xp: number, currentStreak: number, bestStreak: number) {
   if (!supabaseClient) return;
 
-  logJourney("Updating ranking/profile XP", { playerName, xp, currentStreak, bestStreak });
+  const userId = getUserId(userIdInput);
+  logJourney("Updating ranking/profile XP", { userId, playerName, xp, currentStreak, bestStreak });
   const profile = await supabaseClient
     .from("profiles")
     .select("id, total_xp, weekly_xp, best_streak")
-    .eq("player_name", playerName)
+    .eq("user_id", userId)
     .maybeSingle();
 
   if (profile.error) return;
 
   const payload = {
     player_name: playerName,
+    user_id: userId,
+    local_user_id: userId,
     total_xp: Number(profile.data?.total_xp ?? 0) + xp,
     weekly_xp: Number(profile.data?.weekly_xp ?? 0) + xp,
     current_streak: currentStreak,
@@ -381,34 +393,45 @@ async function syncProfileXP(playerName: string, xp: number, currentStreak: numb
   logJourney("Ranking/profile XP updated", { playerName, weeklyXpDelta: xp });
 }
 
-export async function getJourneyDay(playerNameInput: string, dayNumber?: number): Promise<CurrentReadingState> {
+export async function getJourneyDay(
+  userIdInput: string,
+  playerNameInput: string,
+  dayNumber?: number
+): Promise<CurrentReadingState> {
   const playerName = getPlayerName(playerNameInput);
+  const userId = getUserId(userIdInput);
 
   try {
     if (!supabaseClient) throw new Error("Supabase not configured.");
-    return await buildState(playerName, dayNumber);
+    return await buildState(userId, playerName, dayNumber);
   } catch (error) {
     logJourneyError("Journey state failed; using localStorage fallback", error);
-    return localBibleJourneyService.getJourneyDay(playerName, dayNumber);
+    return localBibleJourneyService.getJourneyDay(userId, dayNumber);
   }
 }
 
-export async function completeJourneyDay(playerNameInput: string, dayNumber: number): Promise<CurrentReadingState> {
-  return completeJourneyPart(playerNameInput, dayNumber, "reading");
+export async function completeJourneyDay(
+  userIdInput: string,
+  playerNameInput: string,
+  dayNumber: number
+): Promise<CurrentReadingState> {
+  return completeJourneyPart(userIdInput, playerNameInput, dayNumber, "reading");
 }
 
 export async function completeJourneyPart(
+  userIdInput: string,
   playerNameInput: string,
   dayNumber: number,
   part: "reading" | "quiz" | "word",
   xpOverride?: number
 ): Promise<CurrentReadingState> {
   const playerName = getPlayerName(playerNameInput);
+  const userId = getUserId(userIdInput);
 
   try {
     if (!supabaseClient) throw new Error("Supabase not configured.");
     logJourney("Completing journey part", { playerName, dayNumber, part, xpOverride });
-    const state = await buildState(playerName, dayNumber);
+    const state = await buildState(userId, playerName, dayNumber);
 
     if (dayNumber > state.progress.availableJourneyDay) {
       logJourney("Blocked future day completion", {
@@ -424,8 +447,8 @@ export async function completeJourneyPart(
     }
 
     const today = getTodayKey();
-    const progressRow = await getOrCreateJourneyProgress(playerName);
-    const completedRows = await getCompletedDays(playerName);
+    const progressRow = await getOrCreateJourneyProgress(userId, playerName);
+    const completedRows = await getCompletedDays(userId, playerName);
     const lastCompletedDate = completedRows
       .map((row) => row.completed_date)
       .filter(Boolean)
@@ -443,7 +466,7 @@ export async function completeJourneyPart(
     const existingStatus = await supabaseClient
       .from("user_journey_day_status")
       .select("*")
-      .eq("player_name", playerName)
+      .eq("user_id", userId)
       .eq("day_number", dayNumber)
       .maybeSingle();
 
@@ -466,6 +489,7 @@ export async function completeJourneyPart(
       : Number(progressRow.best_streak ?? 0);
     const statusPayload = {
       player_name: playerName,
+      user_id: userId,
       day_number: dayNumber,
       status,
       reading_completed: readingCompleted,
@@ -509,7 +533,7 @@ export async function completeJourneyPart(
         last_access_date: today,
         updated_at: new Date().toISOString()
       })
-      .eq("player_name", playerName);
+      .eq("user_id", userId);
 
     if (progressUpdate.error) throw progressUpdate.error;
     logJourney("Updated user_journey_progress", {
@@ -520,9 +544,9 @@ export async function completeJourneyPart(
       totalXpDelta: xpEarned,
       nextStreak
     });
-    await syncProfileXP(playerName, xpEarned, updatedCurrentStreak, updatedBestStreak);
+    await syncProfileXP(userId, playerName, xpEarned, updatedCurrentStreak, updatedBestStreak);
 
-    const nextState = await buildState(playerName);
+    const nextState = await buildState(userId, playerName);
     const nextDay = nextState.progress.missedDays[0] ?? dayNumber;
     logJourney("Journey calendar refreshed", {
       playerName,
@@ -530,10 +554,10 @@ export async function completeJourneyPart(
       completedDays: nextState.progress.completedReadings,
       pendingCount: nextState.progress.pendingCount
     });
-    return buildState(playerName, nextDay);
+    return buildState(userId, playerName, nextDay);
   } catch (error) {
     logJourneyError("Journey completion failed; using localStorage fallback", error);
-    return localBibleJourneyService.completeJourneyPart(playerName, dayNumber, part, xpOverride);
+    return localBibleJourneyService.completeJourneyPart(userId, dayNumber, part, xpOverride);
   }
 }
 

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ChallengeId, DailyChallengeResult, UserProgress } from "@/types/dailyProgress";
 import {
   completeChallenge as completeChallengeInService,
+  completeOnboarding as completeOnboardingInService,
   getUserProgress,
   hasCompletedChallengeToday,
   resetDailyStateIfNeeded,
@@ -54,12 +55,20 @@ export function useDailyProgress() {
     });
   }, []);
 
+  const completeOnboarding = useCallback(function completeOnboarding(playerName?: string) {
+    setProgress((current) => {
+      if (!current) return current;
+      return completeOnboardingInService(current, playerName);
+    });
+  }, []);
+
   return {
     progress,
     todayHistory,
     isLoaded: Boolean(progress),
     refreshDay,
     completeChallenge,
-    updatePlayerName
+    updatePlayerName,
+    completeOnboarding
   };
 }
