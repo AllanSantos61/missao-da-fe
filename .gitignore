@@ -1,6 +1,9 @@
 .next
 node_modules
 out
+.env
+.env.*
 .env*.local
+!.env.example
 .vercel
 *.tsbuildinfo

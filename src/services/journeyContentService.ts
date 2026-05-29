@@ -125,10 +125,21 @@ function mapMission(row: JourneyDayRow, questions: JourneyQuizQuestion[]): Journ
   };
 }
 
-export async function getJourneyMission(dayNumber: number): Promise<JourneyDayMission> {
-  if (!supabaseClient) return fallbackMission(dayNumber);
+type GetJourneyMissionOptions = {
+  allowFallback?: boolean;
+};
+
+export async function getJourneyMission(
+  dayNumber: number,
+  options: GetJourneyMissionOptions = { allowFallback: true }
+): Promise<JourneyDayMission> {
+  if (!supabaseClient) {
+    if (options.allowFallback === false) throw new Error("Supabase not configured.");
+    return fallbackMission(dayNumber);
+  }
 
   try {
+    console.info("[JourneyContent] Fetching mission", { dayNumber });
     const [dayResult, quizResult] = await Promise.all([
       supabaseClient
         .from("journey_days")
@@ -147,13 +158,22 @@ export async function getJourneyMission(dayNumber: number): Promise<JourneyDayMi
 
     if (dayResult.error) throw dayResult.error;
     if (quizResult.error) throw quizResult.error;
-    if (!dayResult.data) return fallbackMission(dayNumber);
+    if (!dayResult.data) throw new Error(`journey_days missing day_number=${dayNumber}`);
 
-    return mapMission(
-      dayResult.data as JourneyDayRow,
-      ((quizResult.data ?? []) as JourneyQuizQuestionRow[]).map(mapQuestion)
-    );
+    const questions = ((quizResult.data ?? []) as JourneyQuizQuestionRow[]).map(mapQuestion);
+    if (questions.length !== 3) {
+      throw new Error(`journey_quiz_questions expected 3 questions for day_number=${dayNumber}, got ${questions.length}`);
+    }
+
+    console.info("[JourneyContent] Mission loaded", {
+      dayNumber,
+      reference: (dayResult.data as JourneyDayRow).bible_reference,
+      questions: questions.length
+    });
+
+    return mapMission(dayResult.data as JourneyDayRow, questions);
   } catch (error) {
+    if (options.allowFallback === false) throw error;
     console.warn("Journey mission fetch failed; using local fallback.", error);
     return fallbackMission(dayNumber);
   }

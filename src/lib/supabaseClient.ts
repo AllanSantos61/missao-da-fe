@@ -27,7 +27,6 @@ export const supabaseClient = supabaseConfig
 
 if (typeof window !== "undefined" && supabaseConfig) {
   console.info("Supabase initialized", {
-    url: supabaseConfig.url,
-    anonKeyPrefix: `${supabaseConfig.anonKey.slice(0, 8)}...`
+    url: supabaseConfig.url
   });
 }

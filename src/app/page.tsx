@@ -58,11 +58,11 @@ export default function Home() {
 
   const challengeXp = useMemo(
     () => ({
-      gospel: readingXP,
-      quiz: dailyChallengeContent.quiz.xp,
-      word: dailyChallengeContent.word.xp
+      gospel: journey?.mission?.readingXp ?? readingXP,
+      quiz: journey?.mission?.quizXp ?? dailyChallengeContent.quiz.xp,
+      word: journey?.mission?.wordXp ?? dailyChallengeContent.word.xp
     }),
-    [dailyChallengeContent]
+    [dailyChallengeContent, journey?.mission]
   );
 
   function handleComplete(result: DailyChallengeResult) {
@@ -128,14 +128,14 @@ export default function Home() {
           explanation: question.explanation
         }))
       }
-    : dailyChallengeContent.quiz;
+    : null;
   const journeyWordData = journey?.mission
     ? {
         title: `Palavra do Dia ${journey.selectedDay}`,
         secret: journey.mission.normalizedFaithWord,
         xp: journey.mission.wordXp
       }
-    : dailyChallengeContent.word;
+    : null;
   const journeyQuizResult =
     selectedJourneyDay?.quizCompleted
       ? {
@@ -293,7 +293,13 @@ export default function Home() {
           </section>
         ) : null}
 
-        {selectedChallenge === "quiz" ? (
+        {selectedChallenge === "quiz" && !journey ? (
+          <section className="rounded-[1.75rem] bg-white p-6 text-center shadow-card">
+            <p className="font-black text-navy">Carregando quiz da Jornada da Fé...</p>
+          </section>
+        ) : null}
+
+        {selectedChallenge === "quiz" && journeyQuizData ? (
           <QuizFaith
             data={journeyQuizData}
             savedResult={journeyQuizResult}
@@ -306,7 +312,13 @@ export default function Home() {
           />
         ) : null}
 
-        {selectedChallenge === "word" ? (
+        {selectedChallenge === "word" && !journey ? (
+          <section className="rounded-[1.75rem] bg-white p-6 text-center shadow-card">
+            <p className="font-black text-navy">Carregando Palavra da Fé da Jornada...</p>
+          </section>
+        ) : null}
+
+        {selectedChallenge === "word" && journeyWordData ? (
           <WordFaithGame
             data={journeyWordData}
             savedResult={journeyWordResult}
