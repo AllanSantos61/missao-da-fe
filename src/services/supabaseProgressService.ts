@@ -7,6 +7,10 @@ type DailyResultRow = {
   xp_earned: number;
 };
 
+type ExistingDailyResultRow = {
+  id: string;
+};
+
 type ProfileRankingRow = {
   player_name: string;
   weekly_xp: number | null;
@@ -44,15 +48,17 @@ export function isSupabaseEnabled() {
 }
 
 async function upsertDailyResult(
-  playerName: string,
+  progress: Pick<UserProgress, "anonymousUserId" | "localUserId" | "playerName">,
   challengeDate: string,
   challengeId: ChallengeId,
   result: DailyChallengeResult
 ) {
   if (!supabaseClient) return;
 
+  const playerName = progress.playerName;
   const challengeType = challengeTypeMap[challengeId];
   logSupabase("Saving challenge result", {
+    userId: progress.anonymousUserId,
     playerName,
     challengeDate,
     challengeType,
@@ -65,7 +71,8 @@ async function upsertDailyResult(
     .eq("player_name", playerName)
     .eq("challenge_date", challengeDate)
     .eq("challenge_type", challengeType)
-    .maybeSingle();
+    .order("completed_at", { ascending: false, nullsFirst: false })
+    .limit(1);
 
   if (existingResult.error) {
     logSupabaseError("Select daily result failed", existingResult.error);
@@ -73,6 +80,8 @@ async function upsertDailyResult(
   }
 
   const payload = {
+    user_id: progress.anonymousUserId,
+    local_user_id: progress.localUserId,
     player_name: playerName,
     challenge_date: challengeDate,
     challenge_type: challengeType,
@@ -81,11 +90,13 @@ async function upsertDailyResult(
     completed_at: result.completedAt
   };
 
-  if (existingResult.data?.id) {
+  const existingRow = (existingResult.data?.[0] ?? null) as ExistingDailyResultRow | null;
+
+  if (existingRow?.id) {
     const { error } = await supabaseClient
       .from("daily_results")
       .update(payload)
-      .eq("id", existingResult.data.id);
+      .eq("id", existingRow.id);
     if (error) {
       logSupabaseError("Update daily result failed", error);
       throw error;
@@ -94,7 +105,9 @@ async function upsertDailyResult(
     return;
   }
 
-  const { error } = await supabaseClient.from("daily_results").insert(payload);
+  const { error } = await supabaseClient
+    .from("daily_results")
+    .upsert(payload, { onConflict: "player_name,challenge_date,challenge_type" });
   if (error) {
     logSupabaseError("Insert failed", error);
     throw error;
@@ -159,7 +172,7 @@ export async function syncProgress(progress: UserProgress) {
   for (const day of Object.values(progress.dailyHistory)) {
     for (const [challengeId, result] of Object.entries(day.results)) {
       if (result) {
-        await upsertDailyResult(progress.playerName, day.date, challengeId as ChallengeId, result);
+        await upsertDailyResult(progress, day.date, challengeId as ChallengeId, result);
       }
     }
   }
@@ -212,7 +225,7 @@ export async function saveChallengeResult(
 ) {
   if (!supabaseClient || !progress.playerName) return;
 
-  await upsertDailyResult(progress.playerName, getTodayKey(), challengeId, result);
+  await upsertDailyResult(progress, getTodayKey(), challengeId, result);
 }
 
 export async function fetchWeeklyRanking(currentPlayerName?: string): Promise<RankingEntry[]> {

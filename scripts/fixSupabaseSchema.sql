@@ -109,6 +109,51 @@ create index if not exists profiles_user_id_idx on public.profiles(user_id);
 create index if not exists profiles_player_name_idx on public.profiles(player_name);
 create index if not exists profiles_weekly_xp_idx on public.profiles(weekly_xp desc);
 
+create table if not exists public.daily_results (
+  id uuid primary key default gen_random_uuid(),
+  user_id text,
+  local_user_id text,
+  player_name text not null,
+  challenge_date date not null,
+  challenge_type text not null,
+  xp_earned integer not null default 0,
+  completed boolean not null default true,
+  completed_at timestamptz not null default now()
+);
+
+alter table public.daily_results add column if not exists user_id text;
+alter table public.daily_results add column if not exists local_user_id text;
+alter table public.daily_results add column if not exists player_name text;
+alter table public.daily_results add column if not exists challenge_date date;
+alter table public.daily_results add column if not exists challenge_type text;
+alter table public.daily_results add column if not exists xp_earned integer default 0;
+alter table public.daily_results add column if not exists completed boolean default true;
+alter table public.daily_results add column if not exists completed_at timestamptz default now();
+
+with ranked_daily_results as (
+  select
+    id,
+    row_number() over (
+      partition by player_name, challenge_date, challenge_type
+      order by completed_at desc nulls last, id desc
+    ) as row_number
+  from public.daily_results
+  where player_name is not null
+    and challenge_date is not null
+    and challenge_type is not null
+)
+delete from public.daily_results daily_results
+using ranked_daily_results ranked
+where daily_results.id = ranked.id
+  and ranked.row_number > 1;
+
+create unique index if not exists daily_results_player_date_type_uidx
+  on public.daily_results(player_name, challenge_date, challenge_type);
+create index if not exists daily_results_user_id_idx on public.daily_results(user_id);
+create index if not exists daily_results_challenge_date_idx on public.daily_results(challenge_date);
+create index if not exists daily_results_weekly_ranking_idx
+  on public.daily_results(challenge_date, completed, player_name);
+
 create table if not exists public.user_journey_progress (
   id uuid primary key default gen_random_uuid(),
   user_id text,
@@ -207,6 +252,7 @@ alter table public.journey_quiz_questions enable row level security;
 alter table public.user_journey_progress enable row level security;
 alter table public.user_journey_day_status enable row level security;
 alter table public.profiles enable row level security;
+alter table public.daily_results enable row level security;
 alter table public.site_stats enable row level security;
 alter table public.app_events enable row level security;
 
@@ -221,6 +267,9 @@ drop policy if exists "anon_update_user_journey_day_status" on public.user_journ
 drop policy if exists "anon_select_profiles" on public.profiles;
 drop policy if exists "anon_insert_profiles" on public.profiles;
 drop policy if exists "anon_update_profiles" on public.profiles;
+drop policy if exists "anon_select_daily_results" on public.daily_results;
+drop policy if exists "anon_insert_daily_results" on public.daily_results;
+drop policy if exists "anon_update_daily_results" on public.daily_results;
 drop policy if exists "anon_select_site_stats" on public.site_stats;
 drop policy if exists "anon_insert_site_stats" on public.site_stats;
 drop policy if exists "anon_update_site_stats" on public.site_stats;
@@ -295,6 +344,25 @@ to anon
 using (true)
 with check (true);
 
+create policy "anon_select_daily_results"
+on public.daily_results
+for select
+to anon
+using (true);
+
+create policy "anon_insert_daily_results"
+on public.daily_results
+for insert
+to anon
+with check (true);
+
+create policy "anon_update_daily_results"
+on public.daily_results
+for update
+to anon
+using (true)
+with check (true);
+
 create policy "anon_select_site_stats"
 on public.site_stats
 for select
@@ -326,5 +394,6 @@ grant select on public.journey_quiz_questions to anon;
 grant select, insert, update on public.user_journey_progress to anon;
 grant select, insert, update on public.user_journey_day_status to anon;
 grant select, insert, update on public.profiles to anon;
+grant select, insert, update on public.daily_results to anon;
 grant select, insert, update on public.site_stats to anon;
 grant insert on public.app_events to anon;
