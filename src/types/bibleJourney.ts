@@ -1,4 +1,4 @@
-export type CalendarStatus = "completed" | "missed" | "pending";
+export type JourneyDayStatus = "completed" | "pending" | "available" | "locked";
 
 export type BibleReading = {
   id?: string;
@@ -14,30 +14,39 @@ export type BibleReading = {
   content?: string | null;
   source?: string | null;
   estimatedMinutes: number;
+  xpReward: number;
+};
+
+export type JourneyCalendarDay = {
+  dayNumber: number;
+  status: JourneyDayStatus;
+  xpEarned: number;
+  completedDate?: string | null;
 };
 
 export type BibleProgress = {
   playerName: string;
-  currentReadingIndex: number;
-  completedReadings: number;
-  totalReadings: number;
+  journeyStartDate: string;
+  currentJourneyDay: number;
+  availableJourneyDay: number;
+  completedDays: number[];
+  missedDays: number[];
+  availableDays: number[];
+  lastAccessDate: string | null;
+  lastCompletedDate: string | null;
   currentStreak: number;
   bestStreak: number;
-  lastCompletedDate: string | null;
-  missedDays: number;
-};
-
-export type ReadingCalendarDay = {
-  date: string;
-  status: CalendarStatus;
-  readingIndex?: number;
-  xpEarned: number;
+  totalXp: number;
+  completedReadings: number;
+  totalReadings: number;
+  pendingCount: number;
 };
 
 export type CurrentReadingState = {
   reading: BibleReading;
+  selectedDay: number;
   progress: BibleProgress;
-  calendar: ReadingCalendarDay[];
-  missedDaysSinceLastVisit: number;
+  calendar: JourneyCalendarDay[];
   source: "supabase" | "local";
+  notice?: string;
 };

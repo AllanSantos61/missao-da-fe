@@ -1,14 +1,15 @@
-import type { BibleProgress, ReadingCalendarDay } from "@/types/bibleJourney";
+import type { BibleProgress, JourneyCalendarDay } from "@/types/bibleJourney";
 
 type XPJourneyCalendarProps = {
-  calendar: ReadingCalendarDay[];
+  calendar: JourneyCalendarDay[];
   progress: BibleProgress;
 };
 
 const statusClass = {
   completed: "bg-faithGreen text-white border-faithGreen",
-  missed: "bg-red-100 text-red-700 border-red-200",
-  pending: "bg-white text-ink/55 border-navy/10"
+  pending: "bg-gold/70 text-navy border-gold/20",
+  available: "bg-navy text-white border-navy",
+  locked: "bg-white text-ink/35 border-navy/10"
 };
 
 export function XPJourneyCalendar({ calendar, progress }: XPJourneyCalendarProps) {
@@ -17,7 +18,7 @@ export function XPJourneyCalendar({ calendar, progress }: XPJourneyCalendarProps
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-sm font-black text-navy">Calendário da Jornada</p>
-          <p className="mt-1 text-xs font-semibold text-ink/60">Últimos 30 dias</p>
+          <p className="mt-1 text-xs font-semibold text-ink/60">Primeiros 30 dias</p>
         </div>
         <div className="text-right text-xs font-bold text-ink/60">
           <p>Sequência: {progress.currentStreak}</p>
@@ -26,21 +27,15 @@ export function XPJourneyCalendar({ calendar, progress }: XPJourneyCalendarProps
       </div>
 
       <div className="mt-4 grid grid-cols-10 gap-1.5">
-        {calendar.map((day) => (
+        {calendar.slice(0, 30).map((day) => (
           <div
-            key={day.date}
-            title={`${day.date} · ${day.status} · ${day.xpEarned} XP`}
+            key={day.dayNumber}
+            title={`Dia ${day.dayNumber} · ${day.status} · ${day.xpEarned} XP`}
             className={`flex aspect-square items-center justify-center rounded-lg border text-[10px] font-black ${statusClass[day.status]}`}
           >
-            {new Date(`${day.date}T12:00:00`).getDate()}
+            {day.dayNumber}
           </div>
         ))}
-      </div>
-
-      <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold text-ink/60">
-        <span>Verde: concluído</span>
-        <span>Cinza: pendente</span>
-        <span>Vermelho suave: perdido</span>
       </div>
     </section>
   );

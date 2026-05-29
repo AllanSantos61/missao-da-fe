@@ -62,10 +62,47 @@ create table if not exists reading_plan (
   id uuid primary key default gen_random_uuid(),
   day_number integer not null unique,
   reading_id uuid references bible_readings(id),
+  reference text,
+  book text,
+  chapter_start integer,
+  verse_start integer,
+  chapter_end integer,
+  verse_end integer,
   title text,
   estimated_minutes integer default 10,
   xp_reward integer default 40,
   active boolean default true
+);
+
+alter table reading_plan add column if not exists reference text;
+alter table reading_plan add column if not exists book text;
+alter table reading_plan add column if not exists chapter_start integer;
+alter table reading_plan add column if not exists verse_start integer;
+alter table reading_plan add column if not exists chapter_end integer;
+alter table reading_plan add column if not exists verse_end integer;
+
+create table if not exists user_journey_progress (
+  id uuid primary key default gen_random_uuid(),
+  player_name text not null unique,
+  journey_start_date date not null default current_date,
+  current_streak integer default 0,
+  best_streak integer default 0,
+  total_xp integer default 0,
+  last_access_date date,
+  created_at timestamp default now(),
+  updated_at timestamp default now()
+);
+
+create table if not exists user_journey_days (
+  id uuid primary key default gen_random_uuid(),
+  player_name text not null,
+  day_number integer not null,
+  status text not null check (status in ('completed', 'pending', 'available', 'locked')),
+  completed_at timestamp,
+  completed_date date,
+  xp_earned integer default 0,
+  created_at timestamp default now(),
+  unique (player_name, day_number)
 );
 
 alter table bible_readings enable row level security;
@@ -73,6 +110,8 @@ alter table user_bible_progress enable row level security;
 alter table user_reading_history enable row level security;
 alter table user_calendar_status enable row level security;
 alter table reading_plan enable row level security;
+alter table user_journey_progress enable row level security;
+alter table user_journey_days enable row level security;
 
 drop policy if exists "anon_select_bible_readings" on bible_readings;
 drop policy if exists "anon_insert_bible_readings" on bible_readings;
@@ -87,6 +126,12 @@ drop policy if exists "anon_select_user_calendar_status" on user_calendar_status
 drop policy if exists "anon_insert_user_calendar_status" on user_calendar_status;
 drop policy if exists "anon_update_user_calendar_status" on user_calendar_status;
 drop policy if exists "anon_select_reading_plan" on reading_plan;
+drop policy if exists "anon_select_user_journey_progress" on user_journey_progress;
+drop policy if exists "anon_insert_user_journey_progress" on user_journey_progress;
+drop policy if exists "anon_update_user_journey_progress" on user_journey_progress;
+drop policy if exists "anon_select_user_journey_days" on user_journey_days;
+drop policy if exists "anon_insert_user_journey_days" on user_journey_days;
+drop policy if exists "anon_update_user_journey_days" on user_journey_days;
 
 create policy "anon_select_bible_readings" on bible_readings for select to anon using (true);
 create policy "anon_insert_bible_readings" on bible_readings for insert to anon with check (true);
@@ -104,6 +149,14 @@ create policy "anon_select_user_calendar_status" on user_calendar_status for sel
 create policy "anon_insert_user_calendar_status" on user_calendar_status for insert to anon with check (true);
 create policy "anon_update_user_calendar_status" on user_calendar_status for update to anon using (true) with check (true);
 create policy "anon_select_reading_plan" on reading_plan for select to anon using (active = true);
+
+create policy "anon_select_user_journey_progress" on user_journey_progress for select to anon using (true);
+create policy "anon_insert_user_journey_progress" on user_journey_progress for insert to anon with check (true);
+create policy "anon_update_user_journey_progress" on user_journey_progress for update to anon using (true) with check (true);
+
+create policy "anon_select_user_journey_days" on user_journey_days for select to anon using (true);
+create policy "anon_insert_user_journey_days" on user_journey_days for insert to anon with check (true);
+create policy "anon_update_user_journey_days" on user_journey_days for update to anon using (true) with check (true);
 
 insert into bible_readings (order_index, book, chapter_start, reference, title, content, source, estimated_minutes)
 values

@@ -2,11 +2,11 @@
 
 import { ChallengeActionBar } from "@/components/ChallengeActionBar";
 import { ChallengeStatusStrip } from "@/components/ChallengeStatusStrip";
-import { XPJourneyCalendar } from "@/components/XPJourneyCalendar";
+import { JourneyCalendar365 } from "@/components/JourneyCalendar365";
 import { useBibleApiReading } from "@/hooks/useBibleApiReading";
 import { readingXP } from "@/services/bibleJourneyService";
+import type { CurrentReadingState, JourneyDayStatus } from "@/types/bibleJourney";
 import type { DailyChallengeResult, DayHistory, UserProgress } from "@/types/dailyProgress";
-import type { CurrentReadingState } from "@/types/bibleJourney";
 
 type NewTestamentJourneyProps = {
   journey: CurrentReadingState;
@@ -14,12 +14,18 @@ type NewTestamentJourneyProps = {
   progress: UserProgress;
   todayHistory: DayHistory;
   isCompleting: boolean;
-  onCompleteReading: () => Promise<unknown>;
+  onSelectDay: (dayNumber: number) => void;
+  onCompleteReading: (dayNumber?: number) => Promise<CurrentReadingState>;
   onCompleteDaily: (result: DailyChallengeResult) => void;
   onNextMission: () => void;
   nextMissionLabel: string;
   onBack: () => void;
 };
+
+function getLockedMessage(status: JourneyDayStatus) {
+  if (status === "locked") return "Essa missão ainda não foi liberada. Continue sua jornada dia após dia.";
+  return null;
+}
 
 export function NewTestamentJourney({
   journey,
@@ -27,25 +33,38 @@ export function NewTestamentJourney({
   progress,
   todayHistory,
   isCompleting,
+  onSelectDay,
   onCompleteReading,
   onCompleteDaily,
   onNextMission,
   nextMissionLabel,
   onBack
 }: NewTestamentJourneyProps) {
-  const completedToday = Boolean(savedResult);
-  const percent = Math.min(100, Math.round((journey.progress.completedReadings / journey.progress.totalReadings) * 100));
+  const selectedCalendarDay = journey.calendar.find((day) => day.dayNumber === journey.selectedDay);
+  const selectedStatus = selectedCalendarDay?.status ?? "locked";
+  const isLocked = selectedStatus === "locked";
+  const isCompleted = selectedStatus === "completed";
   const bibleText = useBibleApiReading(journey.reading);
+  const percent = Math.min(
+    100,
+    Math.round((journey.progress.completedReadings / journey.progress.totalReadings) * 100)
+  );
+  const completedAllAvailable = journey.progress.pendingCount === 0;
+  const actionLabel = completedAllAvailable
+    ? "Missão de hoje concluída. A próxima leitura será liberada amanhã."
+    : journey.progress.pendingCount > 1
+      ? `Você ainda tem ${journey.progress.pendingCount} missões disponíveis para recuperar.`
+      : "Você tem uma missão disponível para concluir.";
 
   async function handleCompleteReading() {
-    if (completedToday || isCompleting) return;
+    if (isCompleted || isLocked || isCompleting) return;
 
-    await onCompleteReading();
+    const nextState = await onCompleteReading(journey.selectedDay);
     onCompleteDaily({
       id: "gospel",
       completedAt: new Date().toISOString(),
-      xpEarned: readingXP,
-      scoreLabel: `${journey.progress.completedReadings + 1}/${journey.progress.totalReadings}`,
+      xpEarned: journey.reading.xpReward ?? readingXP,
+      scoreLabel: `${nextState.progress.completedReadings}/${nextState.progress.totalReadings}`,
       gospel: { completed: true }
     });
   }
@@ -53,63 +72,76 @@ export function NewTestamentJourney({
   return (
     <section className="rounded-[1.75rem] bg-altar p-5 shadow-card">
       <ChallengeActionBar
-        isCompleted={completedToday}
+        isCompleted={Boolean(savedResult)}
         nextMissionLabel={nextMissionLabel}
         onBack={onBack}
         onNextMission={onNextMission}
       />
 
       <div className="mt-4">
-        <ChallengeStatusStrip challengeId="gospel" xp={readingXP} progress={progress} todayHistory={todayHistory} />
+        <ChallengeStatusStrip challengeId="gospel" xp={journey.reading.xpReward ?? readingXP} progress={progress} todayHistory={todayHistory} />
       </div>
 
-      {journey.missedDaysSinceLastVisit > 0 ? (
+      {journey.notice ? (
         <div className="mt-5 rounded-3xl bg-gold/15 p-4 text-sm font-bold leading-6 text-navy">
-          Você ficou alguns dias sem concluir sua missão. Tudo bem, sua jornada continua de onde parou.
+          {journey.notice}
         </div>
       ) : null}
 
-      <p className="mt-5 text-xs font-black uppercase tracking-wide text-gold">Jornada do Novo Testamento</p>
-      <h2 className="mt-2 text-3xl font-black text-ink">{journey.reading.reference}</h2>
-      <p className="mt-1 font-bold text-navy">{journey.reading.title}</p>
-
       <div className="mt-5 rounded-3xl bg-navy p-5 text-white">
-        <div className="flex items-center justify-between gap-3 text-sm font-bold text-white/75">
+        <p className="text-xs font-black uppercase tracking-wide text-gold">Jornada da Fé</p>
+        <h2 className="mt-2 text-3xl font-black leading-tight">Dia {journey.selectedDay}</h2>
+        <p className="mt-2 max-w-xl text-sm font-semibold leading-6 text-white/75">
+          Leia o Novo Testamento em 365 dias, no seu ritmo, sem perder a sequência da missão.
+        </p>
+
+        <div className="mt-5 flex items-center justify-between gap-3 text-sm font-bold text-white/75">
           <span>Progresso total</span>
           <span>
             {journey.progress.completedReadings}/{journey.progress.totalReadings}
           </span>
         </div>
         <div className="mt-3 h-3 overflow-hidden rounded-full bg-white/15">
-          <div className="h-full rounded-full bg-gold" style={{ width: `${percent}%` }} />
+          <div className="h-full rounded-full bg-gold transition-all duration-500" style={{ width: `${percent}%` }} />
         </div>
+
         <div className="mt-4 grid grid-cols-3 gap-2 text-center text-sm">
           <div className="rounded-2xl bg-white/10 p-3">
-            <p className="text-white/60">Tempo</p>
-            <p className="font-black">{journey.reading.estimatedMinutes} min</p>
+            <p className="text-white/60">Liberado</p>
+            <p className="font-black">Dia {journey.progress.availableJourneyDay}</p>
           </div>
           <div className="rounded-2xl bg-white/10 p-3">
-            <p className="text-white/60">XP</p>
-            <p className="font-black">+{readingXP}</p>
+            <p className="text-white/60">Pendentes</p>
+            <p className="font-black">{journey.progress.pendingCount}</p>
           </div>
           <div className="rounded-2xl bg-white/10 p-3">
-            <p className="text-white/60">Fonte</p>
-            <p className="font-black">
-              {bibleText.reading?.source === "api"
-                ? "Bible API"
-                : bibleText.reading?.source === "cache"
-                  ? "Cache"
-                  : journey.source === "supabase"
-                    ? "Online"
-                    : "Local"}
-            </p>
+            <p className="text-white/60">Sequência</p>
+            <p className="font-black">{journey.progress.currentStreak}</p>
           </div>
         </div>
       </div>
 
+      <div className="mt-5">
+        <JourneyCalendar365 days={journey.calendar} selectedDay={journey.selectedDay} onSelectDay={onSelectDay} />
+      </div>
+
       <article className="mt-5 rounded-3xl border border-navy/10 bg-parchment p-5">
-        {bibleText.isLoading ? (
-          <div className="space-y-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-wide text-gold">{journey.reading.reference}</p>
+            <h3 className="mt-2 text-2xl font-black text-ink">{journey.reading.title}</h3>
+          </div>
+          <span className="rounded-full bg-white px-3 py-1.5 text-xs font-black text-navy shadow-sm">
+            {journey.reading.estimatedMinutes} min · +{journey.reading.xpReward ?? readingXP} XP
+          </span>
+        </div>
+
+        {getLockedMessage(selectedStatus) ? (
+          <div className="mt-5 rounded-2xl bg-stone/15 p-4 text-sm font-bold leading-6 text-ink/70">
+            {getLockedMessage(selectedStatus)}
+          </div>
+        ) : bibleText.isLoading ? (
+          <div className="mt-5 space-y-3">
             <div className="h-4 w-2/3 animate-pulse rounded-full bg-navy/10" />
             <div className="h-4 w-full animate-pulse rounded-full bg-navy/10" />
             <div className="h-4 w-5/6 animate-pulse rounded-full bg-navy/10" />
@@ -118,32 +150,28 @@ export function NewTestamentJourney({
         ) : (
           <>
             {bibleText.reading?.errorMessage ? (
-              <div className="mb-4 rounded-2xl bg-gold/15 p-4 text-sm font-bold leading-6 text-navy">
+              <div className="mt-5 rounded-2xl bg-gold/15 p-4 text-sm font-bold leading-6 text-navy">
                 {bibleText.reading.errorMessage}
               </div>
             ) : null}
-            <p className="whitespace-pre-line text-lg leading-8 text-ink/78">{bibleText.reading?.text}</p>
+            <p className="mt-5 whitespace-pre-line text-lg leading-8 text-ink/78">{bibleText.reading?.text}</p>
           </>
         )}
       </article>
 
-      <div className="mt-5">
-        <XPJourneyCalendar calendar={journey.calendar} progress={journey.progress} />
+      <div className="mt-5 rounded-2xl bg-white px-4 py-4 text-center text-sm font-black text-navy shadow-sm">
+        {isCompleted ? `Dia ${journey.selectedDay} concluído · +${selectedCalendarDay?.xpEarned ?? readingXP} XP` : actionLabel}
       </div>
 
-      {completedToday ? (
-        <div className="mt-5 rounded-2xl bg-faithGreen/12 px-4 py-4 text-center font-black text-faithGreen">
-          Leitura concluída hoje · +{savedResult?.xpEarned} XP
-        </div>
-      ) : (
+      {!isCompleted && !isLocked ? (
         <button
           onClick={handleCompleteReading}
           disabled={isCompleting}
-          className="mt-5 w-full rounded-2xl bg-navy px-6 py-4 font-black text-white shadow-card transition enabled:hover:-translate-y-0.5 enabled:hover:bg-ink disabled:cursor-wait disabled:bg-stone"
+          className="mt-4 w-full rounded-2xl bg-navy px-6 py-4 font-black text-white shadow-card transition enabled:hover:-translate-y-0.5 enabled:hover:bg-ink disabled:cursor-wait disabled:bg-stone"
         >
           {isCompleting ? "Salvando leitura..." : "Concluir leitura"}
         </button>
-      )}
+      ) : null}
     </section>
   );
 }

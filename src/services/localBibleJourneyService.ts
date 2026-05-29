@@ -3,172 +3,215 @@ import type {
   BibleProgress,
   BibleReading,
   CurrentReadingState,
-  ReadingCalendarDay
+  JourneyCalendarDay,
+  JourneyDayStatus
 } from "@/types/bibleJourney";
-import { addDays, getDaysBetweenExclusive, getLastNDays } from "@/utils/bibleJourneyDate";
+import { addDays, getDaysElapsedInclusive } from "@/utils/bibleJourneyDate";
 import { getTodayKey } from "@/utils/dateUtils";
 
-const STORAGE_KEY = "missaoDaFeBibleJourney";
+const STORAGE_KEY = "missaoDaFeBibleJourney365";
 const TOTAL_READINGS = 365;
-const READING_XP = 40;
+export const readingXP = 40;
 
-type LocalBibleJourneyState = {
-  progressByPlayer: Record<string, BibleProgress>;
-  calendarByPlayer: Record<string, Record<string, ReadingCalendarDay>>;
-  historyByPlayer: Record<string, number[]>;
+type CompletedJourneyDay = {
+  dayNumber: number;
+  completedDate: string;
+  xpEarned: number;
+};
+
+type LocalJourneyState = {
+  progressByPlayer: Record<
+    string,
+    {
+      journeyStartDate: string;
+      lastAccessDate: string | null;
+      lastCompletedDate: string | null;
+      currentStreak: number;
+      bestStreak: number;
+      totalXp: number;
+    }
+  >;
+  completedByPlayer: Record<string, CompletedJourneyDay[]>;
 };
 
 function getPlayerKey(playerName: string) {
   return playerName.trim() || "visitante";
 }
 
-function getInitialProgress(playerName: string): BibleProgress {
-  return {
-    playerName: getPlayerKey(playerName),
-    currentReadingIndex: 1,
-    completedReadings: 0,
-    totalReadings: TOTAL_READINGS,
-    currentStreak: 0,
-    bestStreak: 0,
-    lastCompletedDate: null,
-    missedDays: 0
-  };
-}
-
-function getInitialState(): LocalBibleJourneyState {
+function getInitialState(): LocalJourneyState {
   return {
     progressByPlayer: {},
-    calendarByPlayer: {},
-    historyByPlayer: {}
+    completedByPlayer: {}
   };
 }
 
-function readState(): LocalBibleJourneyState {
+function readState(): LocalJourneyState {
   if (typeof window === "undefined") return getInitialState();
 
   try {
-    return JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? "") as LocalBibleJourneyState;
+    return JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? "") as LocalJourneyState;
   } catch {
     return getInitialState();
   }
 }
 
-function saveState(state: LocalBibleJourneyState) {
+function saveState(state: LocalJourneyState) {
+  if (typeof window === "undefined") return;
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
-function getReadingByIndex(index: number): BibleReading {
-  return (
-    fallbackNewTestamentReadings.find((reading) => reading.orderIndex === index) ?? {
-      ...fallbackNewTestamentReadings[fallbackNewTestamentReadings.length - 1],
-      orderIndex: index,
-      reference: `Novo Testamento ${index}`,
-      title: `Leitura ${index} da Jornada`,
-      content:
-        "Conteudo temporario para MVP. Cadastre esta leitura em bible_readings com texto licenciado ou resumo autorizado."
-    }
-  );
+function getReadingByDay(dayNumber: number): BibleReading {
+  const fallback =
+    fallbackNewTestamentReadings.find((reading) => reading.orderIndex === dayNumber) ??
+    fallbackNewTestamentReadings[fallbackNewTestamentReadings.length - 1];
+
+  return {
+    ...fallback,
+    orderIndex: dayNumber,
+    reference: fallback.orderIndex === dayNumber ? fallback.reference : `Novo Testamento ${dayNumber}`,
+    title: fallback.orderIndex === dayNumber ? fallback.title : `Dia ${dayNumber} da Jornada`,
+    xpReward: fallback.xpReward ?? readingXP
+  };
 }
 
-function getCalendarList(calendar: Record<string, ReadingCalendarDay>) {
-  return getLastNDays(30).map((date) => calendar[date] ?? { date, status: "pending", xpEarned: 0 });
+function getAvailableJourneyDay(journeyStartDate: string) {
+  return Math.min(TOTAL_READINGS, Math.max(1, getDaysElapsedInclusive(journeyStartDate, getTodayKey())));
 }
 
-export function checkMissedDays(playerName: string) {
+export function getJourneyDayStatus(
+  dayNumber: number,
+  completedDays: number[],
+  availableJourneyDay: number
+): JourneyDayStatus {
+  if (completedDays.includes(dayNumber)) return "completed";
+  if (dayNumber > availableJourneyDay) return "locked";
+  return dayNumber === availableJourneyDay ? "available" : "pending";
+}
+
+function buildProgress(playerName: string, state: LocalJourneyState): BibleProgress {
   const playerKey = getPlayerKey(playerName);
-  const state = readState();
-  const progress = state.progressByPlayer[playerKey] ?? getInitialProgress(playerKey);
-  const calendar = state.calendarByPlayer[playerKey] ?? {};
   const today = getTodayKey();
+  const base = state.progressByPlayer[playerKey] ?? {
+    journeyStartDate: today,
+    lastAccessDate: null,
+    lastCompletedDate: null,
+    currentStreak: 0,
+    bestStreak: 0,
+    totalXp: 0
+  };
 
-  if (!progress.lastCompletedDate) {
-    state.progressByPlayer[playerKey] = progress;
-    state.calendarByPlayer[playerKey] = calendar;
-    saveState(state);
-    return { progress, calendar, missedDaysSinceLastVisit: 0 };
-  }
+  state.progressByPlayer[playerKey] = {
+    ...base,
+    lastAccessDate: today
+  };
 
-  const missedDates = getDaysBetweenExclusive(progress.lastCompletedDate, today);
+  const completed = state.completedByPlayer[playerKey] ?? [];
+  const completedDays = completed.map((day) => day.dayNumber).sort((a, b) => a - b);
+  const availableJourneyDay = getAvailableJourneyDay(base.journeyStartDate);
+  const missedDays = Array.from({ length: availableJourneyDay }, (_, index) => index + 1).filter(
+    (dayNumber) => !completedDays.includes(dayNumber)
+  );
+  const availableDays = missedDays;
 
-  missedDates.forEach((date) => {
-    calendar[date] = {
-      date,
-      status: "missed",
-      readingIndex: progress.currentReadingIndex,
-      xpEarned: 0
+  return {
+    playerName: playerKey,
+    journeyStartDate: base.journeyStartDate,
+    currentJourneyDay: missedDays[0] ?? Math.min(availableJourneyDay + 1, TOTAL_READINGS),
+    availableJourneyDay,
+    completedDays,
+    missedDays,
+    availableDays,
+    lastAccessDate: today,
+    lastCompletedDate: base.lastCompletedDate,
+    currentStreak: base.currentStreak,
+    bestStreak: base.bestStreak,
+    totalXp: base.totalXp,
+    completedReadings: completedDays.length,
+    totalReadings: TOTAL_READINGS,
+    pendingCount: missedDays.length
+  };
+}
+
+function buildCalendar(progress: BibleProgress, completedRows: CompletedJourneyDay[]): JourneyCalendarDay[] {
+  const byDay = new Map(completedRows.map((row) => [row.dayNumber, row]));
+
+  return Array.from({ length: TOTAL_READINGS }, (_, index) => {
+    const dayNumber = index + 1;
+    const completed = byDay.get(dayNumber);
+    return {
+      dayNumber,
+      status: getJourneyDayStatus(dayNumber, progress.completedDays, progress.availableJourneyDay),
+      xpEarned: completed?.xpEarned ?? 0,
+      completedDate: completed?.completedDate ?? null
     };
   });
-
-  const nextProgress = missedDates.length
-    ? {
-        ...progress,
-        currentStreak: 0,
-        missedDays: progress.missedDays + missedDates.length
-      }
-    : progress;
-
-  state.progressByPlayer[playerKey] = nextProgress;
-  state.calendarByPlayer[playerKey] = calendar;
-  saveState(state);
-
-  return { progress: nextProgress, calendar, missedDaysSinceLastVisit: missedDates.length };
 }
 
-export async function getCurrentReading(playerName: string): Promise<CurrentReadingState> {
-  const playerKey = getPlayerKey(playerName);
-  const { progress, calendar, missedDaysSinceLastVisit } = checkMissedDays(playerKey);
-
-  return {
-    reading: getReadingByIndex(progress.currentReadingIndex),
-    progress,
-    calendar: getCalendarList(calendar),
-    missedDaysSinceLastVisit,
-    source: "local"
-  };
-}
-
-export async function completeCurrentReading(playerName: string): Promise<CurrentReadingState> {
+export async function getJourneyDay(playerName: string, dayNumber?: number): Promise<CurrentReadingState> {
   const playerKey = getPlayerKey(playerName);
   const state = readState();
-  const checked = checkMissedDays(playerKey);
-  const progress = checked.progress;
-  const calendar = state.calendarByPlayer[playerKey] ?? checked.calendar ?? {};
-  const history = state.historyByPlayer[playerKey] ?? [];
-  const today = getTodayKey();
-
-  if (history.includes(progress.currentReadingIndex)) {
-    return getCurrentReading(playerKey);
-  }
-
-  calendar[today] = {
-    date: today,
-    status: "completed",
-    readingIndex: progress.currentReadingIndex,
-    xpEarned: READING_XP
-  };
-
-  const nextStreak = progress.lastCompletedDate === addDays(today, -1) ? progress.currentStreak + 1 : 1;
-  const nextProgress: BibleProgress = {
-    ...progress,
-    currentReadingIndex: progress.currentReadingIndex + 1,
-    completedReadings: progress.completedReadings + 1,
-    currentStreak: nextStreak,
-    bestStreak: Math.max(progress.bestStreak, nextStreak),
-    lastCompletedDate: today
-  };
-
-  state.progressByPlayer[playerKey] = nextProgress;
-  state.calendarByPlayer[playerKey] = calendar;
-  state.historyByPlayer[playerKey] = [...history, progress.currentReadingIndex];
+  const progress = buildProgress(playerKey, state);
+  const completedRows = state.completedByPlayer[playerKey] ?? [];
   saveState(state);
 
+  const selectedDay = Math.min(Math.max(dayNumber ?? progress.currentJourneyDay, 1), TOTAL_READINGS);
+  const calendar = buildCalendar(progress, completedRows);
+
   return {
-    reading: getReadingByIndex(nextProgress.currentReadingIndex),
-    progress: nextProgress,
-    calendar: getCalendarList(calendar),
-    missedDaysSinceLastVisit: 0,
-    source: "local"
+    reading: getReadingByDay(selectedDay),
+    selectedDay,
+    progress,
+    calendar,
+    source: "local",
+    notice:
+      progress.pendingCount > 1
+        ? `Você tem ${progress.pendingCount} missões pendentes. Tudo bem, sua jornada continua de onde parou.`
+        : undefined
   };
 }
 
-export const readingXP = READING_XP;
+export async function completeJourneyDay(playerName: string, dayNumber: number): Promise<CurrentReadingState> {
+  const playerKey = getPlayerKey(playerName);
+  const state = readState();
+  const progress = buildProgress(playerKey, state);
+
+  if (dayNumber > progress.availableJourneyDay) {
+    return getJourneyDay(playerKey, dayNumber);
+  }
+
+  const completed = state.completedByPlayer[playerKey] ?? [];
+  if (completed.some((day) => day.dayNumber === dayNumber)) {
+    return getJourneyDay(playerKey, dayNumber);
+  }
+
+  const today = getTodayKey();
+  const base = state.progressByPlayer[playerKey];
+  const nextStreak =
+    base.lastCompletedDate === today
+      ? base.currentStreak
+      : base.lastCompletedDate === addDays(today, -1)
+        ? base.currentStreak + 1
+        : 1;
+
+  state.progressByPlayer[playerKey] = {
+    ...base,
+    lastAccessDate: today,
+    lastCompletedDate: today,
+    currentStreak: nextStreak,
+    bestStreak: Math.max(base.bestStreak, nextStreak),
+    totalXp: base.totalXp + readingXP
+  };
+  state.completedByPlayer[playerKey] = [
+    ...completed,
+    {
+      dayNumber,
+      completedDate: today,
+      xpEarned: readingXP
+    }
+  ];
+  saveState(state);
+
+  const nextProgress = buildProgress(playerKey, state);
+  const nextDay = nextProgress.missedDays[0] ?? dayNumber;
+  return getJourneyDay(playerKey, nextDay);
+}

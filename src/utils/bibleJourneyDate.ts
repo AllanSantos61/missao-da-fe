@@ -18,6 +18,18 @@ export function getDaysBetweenExclusive(startDateKey: string, endDateKey: string
   return dates;
 }
 
+export function getDaysElapsedInclusive(startDateKey: string, endDateKey: string) {
+  let days = 1;
+  let cursor = startDateKey;
+
+  while (cursor < endDateKey) {
+    days += 1;
+    cursor = addDays(cursor, 1);
+  }
+
+  return days;
+}
+
 export function getLastNDays(days: number) {
   const today = getTodayKey();
   return Array.from({ length: days }, (_, index) => addDays(today, index - days + 1));

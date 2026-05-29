@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { completeCurrentReading, getCurrentReading } from "@/services/bibleJourneyService";
+import { completeJourneyDay, getJourneyDay } from "@/services/bibleJourneyService";
 import type { CurrentReadingState } from "@/types/bibleJourney";
 
 export function useBibleJourney(playerName: string) {
@@ -9,9 +9,9 @@ export function useBibleJourney(playerName: string) {
   const [isLoading, setIsLoading] = useState(true);
   const [isCompleting, setIsCompleting] = useState(false);
 
-  const loadJourney = useCallback(async () => {
+  const loadJourney = useCallback(async (dayNumber?: number) => {
     setIsLoading(true);
-    const state = await getCurrentReading(playerName);
+    const state = await getJourneyDay(playerName, dayNumber);
     setJourney(state);
     setIsLoading(false);
   }, [playerName]);
@@ -20,19 +20,20 @@ export function useBibleJourney(playerName: string) {
     loadJourney();
   }, [loadJourney]);
 
-  const completeReading = useCallback(async () => {
+  const completeReading = useCallback(async (dayNumber?: number) => {
     setIsCompleting(true);
-    const state = await completeCurrentReading(playerName);
+    const state = await completeJourneyDay(playerName, dayNumber ?? journey?.selectedDay ?? 1);
     setJourney(state);
     setIsCompleting(false);
     return state;
-  }, [playerName]);
+  }, [journey?.selectedDay, playerName]);
 
   return {
     journey,
     isLoading,
     isCompleting,
     reloadJourney: loadJourney,
+    selectJourneyDay: loadJourney,
     completeReading
   };
 }

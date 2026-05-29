@@ -21,7 +21,7 @@ import type { ChallengeId, DailyChallengeResult } from "@/types/dailyProgress";
 const challengeCards = [
   {
     id: "gospel" as const,
-    description: "Leia o Novo Testamento inteiro, um trecho por dia, no seu ritmo."
+    description: "Leia o Novo Testamento em 365 dias, no seu ritmo, sem perder a sequência da missão."
   },
   {
     id: "quiz" as const,
@@ -45,6 +45,7 @@ export default function Home() {
     journey,
     isLoading: isJourneyLoading,
     isCompleting: isJourneyCompleting,
+    selectJourneyDay,
     completeReading
   } = useBibleJourney(progress?.playerName ?? "");
 
@@ -138,6 +139,51 @@ export default function Home() {
 
             <DailyProgressHeader progress={progress} todayHistory={todayHistory} />
 
+            {journey ? (
+              <section className="rounded-[1.75rem] bg-navy p-5 text-white shadow-soft">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-gold">Jornada da Fé</p>
+                <h2 className="mt-2 text-3xl font-black leading-tight">Dia {journey.progress.currentJourneyDay}</h2>
+                <p className="mt-3 max-w-xl text-sm leading-6 text-white/78">
+                  Leia o Novo Testamento em 365 dias, no seu ritmo, sem perder a sequência da missão.
+                </p>
+                <div className="mt-5 h-3 overflow-hidden rounded-full bg-white/12">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-gold to-faithGreen transition-all duration-500"
+                    style={{ width: `${Math.round((journey.progress.completedReadings / 365) * 100)}%` }}
+                  />
+                </div>
+                <div className="mt-5 grid grid-cols-2 gap-2 text-center text-sm sm:grid-cols-4">
+                  <div className="rounded-2xl bg-white/10 p-3">
+                    <p className="text-white/60">Progresso</p>
+                    <p className="font-black">{journey.progress.completedReadings}/365</p>
+                  </div>
+                  <div className="rounded-2xl bg-white/10 p-3">
+                    <p className="text-white/60">Liberado</p>
+                    <p className="font-black">Dia {journey.progress.availableJourneyDay}</p>
+                  </div>
+                  <div className="rounded-2xl bg-white/10 p-3">
+                    <p className="text-white/60">Pendentes</p>
+                    <p className="font-black">{journey.progress.pendingCount}</p>
+                  </div>
+                  <div className="rounded-2xl bg-white/10 p-3">
+                    <p className="text-white/60">Sequência</p>
+                    <p className="font-black">{journey.progress.currentStreak}</p>
+                  </div>
+                </div>
+                {journey.progress.pendingCount > 1 ? (
+                  <div className="mt-5 rounded-2xl bg-gold/15 p-4 text-sm font-bold leading-6 text-white">
+                    Você tem {journey.progress.pendingCount} missões pendentes. Tudo bem, sua jornada continua de onde parou.
+                  </div>
+                ) : null}
+                <button
+                  onClick={() => setSelectedChallenge("gospel")}
+                  className="mt-5 w-full rounded-2xl bg-gold px-5 py-4 font-black text-navy shadow-card transition hover:-translate-y-0.5"
+                >
+                  {journey.progress.pendingCount > 1 ? "Recuperar missão pendente" : "Continuar jornada"}
+                </button>
+              </section>
+            ) : null}
+
             <section className="grid gap-3 sm:grid-cols-3">
               {challengeCards.map((card) => (
                 <ChallengeCard
@@ -185,6 +231,7 @@ export default function Home() {
             isCompleting={isJourneyCompleting}
             onCompleteReading={completeReading}
             onCompleteDaily={handleComplete}
+            onSelectDay={selectJourneyDay}
             onNextMission={() => goToNextMission("gospel")}
             nextMissionLabel={getNextMissionLabel("gospel")}
             onBack={goHome}

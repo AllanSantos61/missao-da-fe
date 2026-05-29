@@ -4,7 +4,7 @@ async function main() {
   const supabase = getSeedClient();
   const { data, error } = await supabase
     .from("bible_readings")
-    .select("id, order_index, title, estimated_minutes")
+    .select("order_index, reference, book, chapter_start, verse_start, chapter_end, verse_end, title, estimated_minutes")
     .eq("active", true)
     .order("order_index", { ascending: true })
     .limit(365);
@@ -18,7 +18,12 @@ async function main() {
     const { error: upsertError } = await supabase.from("reading_plan").upsert(
       {
         day_number: reading.order_index,
-        reading_id: reading.id,
+        reference: reading.reference,
+        book: reading.book,
+        chapter_start: reading.chapter_start,
+        verse_start: reading.verse_start,
+        chapter_end: reading.chapter_end,
+        verse_end: reading.verse_end,
         title: reading.title,
         estimated_minutes: reading.estimated_minutes ?? 10,
         xp_reward: 40,

@@ -12,7 +12,8 @@ export const fallbackNewTestamentReadings: BibleReading[] = [
     reference: "Mateus 1",
     title: "A genealogia e o nascimento de Jesus",
     content: placeholder,
-    estimatedMinutes: 10
+    estimatedMinutes: 10,
+    xpReward: 40
   },
   {
     orderIndex: 2,
@@ -22,7 +23,8 @@ export const fallbackNewTestamentReadings: BibleReading[] = [
     reference: "Mateus 2",
     title: "Os magos, a fuga e o retorno",
     content: placeholder,
-    estimatedMinutes: 10
+    estimatedMinutes: 10,
+    xpReward: 40
   },
   {
     orderIndex: 3,
@@ -32,7 +34,8 @@ export const fallbackNewTestamentReadings: BibleReading[] = [
     reference: "Mateus 3",
     title: "Joao Batista prepara o caminho",
     content: placeholder,
-    estimatedMinutes: 8
+    estimatedMinutes: 8,
+    xpReward: 40
   },
   {
     orderIndex: 4,
@@ -42,7 +45,8 @@ export const fallbackNewTestamentReadings: BibleReading[] = [
     reference: "Mateus 4",
     title: "Jesus no deserto e o início da missão",
     content: placeholder,
-    estimatedMinutes: 10
+    estimatedMinutes: 10,
+    xpReward: 40
   },
   {
     orderIndex: 5,
@@ -52,6 +56,7 @@ export const fallbackNewTestamentReadings: BibleReading[] = [
     reference: "Mateus 5",
     title: "O sermao da montanha",
     content: placeholder,
-    estimatedMinutes: 12
+    estimatedMinutes: 12,
+    xpReward: 40
   }
 ];
