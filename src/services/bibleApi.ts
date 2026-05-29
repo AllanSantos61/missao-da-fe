@@ -185,6 +185,11 @@ export async function fetchBibleReading(readingOrReference: BibleReading | strin
   };
 }
 
+export async function fetchBibleText(reference: string) {
+  const reading = await fetchBibleReading(reference);
+  return reading.text;
+}
+
 export async function getReadingByReference(reference: string, fallbackText?: string | null): Promise<BibleApiReading> {
   const cached = readCache(reference);
   if (cached) return { ...cached, source: "cache" };

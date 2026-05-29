@@ -7,6 +7,11 @@ type DailyResultRow = {
   xp_earned: number;
 };
 
+type ProfileRankingRow = {
+  player_name: string;
+  weekly_xp: number | null;
+};
+
 const challengeTypeMap: Record<ChallengeId, string> = {
   gospel: "evangelho",
   quiz: "quiz",
@@ -186,6 +191,22 @@ export async function fetchWeeklyRanking(currentPlayerName?: string): Promise<Ra
   }
 
   logSupabase("Fetching weekly ranking");
+
+  const profiles = await supabaseClient
+    .from("profiles")
+    .select("player_name, weekly_xp")
+    .gt("weekly_xp", 0)
+    .order("weekly_xp", { ascending: false })
+    .limit(10);
+
+  if (!profiles.error && profiles.data?.length) {
+    return (profiles.data as ProfileRankingRow[]).map((row, index) => ({
+      rank: index + 1,
+      name: row.player_name,
+      xp: Number(row.weekly_xp ?? 0),
+      isCurrentUser: Boolean(currentPlayerName && row.player_name === currentPlayerName)
+    }));
+  }
 
   const weekStart = getWeekStartKey();
   const { data, error } = await supabaseClient

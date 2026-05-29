@@ -43,7 +43,7 @@ export function NewTestamentJourney({
   const selectedCalendarDay = journey.calendar.find((day) => day.dayNumber === journey.selectedDay);
   const selectedStatus = selectedCalendarDay?.status ?? "locked";
   const isLocked = selectedStatus === "locked";
-  const isCompleted = selectedStatus === "completed";
+  const isCompleted = Boolean(selectedCalendarDay?.readingCompleted);
   const bibleText = useBibleApiReading(journey.reading);
   const percent = Math.min(
     100,
@@ -72,7 +72,7 @@ export function NewTestamentJourney({
   return (
     <section className="rounded-[1.75rem] bg-altar p-5 shadow-card">
       <ChallengeActionBar
-        isCompleted={Boolean(savedResult)}
+        isCompleted={isCompleted}
         nextMissionLabel={nextMissionLabel}
         onBack={onBack}
         onNextMission={onNextMission}

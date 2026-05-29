@@ -8,9 +8,13 @@
     "start": "next start",
     "lint": "next lint",
     "seed:words": "tsx scripts/seedFaithWords.ts",
-    "seed:quiz": "tsx scripts/seedQuizQuestions.ts",
+    "seed:legacy-quiz": "tsx scripts/seedQuizQuestions.ts",
     "seed:bible": "tsx scripts/seedBibleReadings.ts",
-    "seed:plan": "tsx scripts/seedReadingPlan.ts"
+    "seed:plan": "tsx scripts/seedReadingPlan.ts",
+    "db:create-journey": "node -e \"console.log('Abra scripts/createJourneyTables.sql no SQL Editor do Supabase e execute o arquivo.')\"",
+    "seed:journey": "tsx scripts/seedJourneyDays.ts",
+    "seed:quiz": "tsx scripts/seedJourneyQuiz.ts",
+    "seed:content": "tsx scripts/seedJourneyContent.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.106.2",

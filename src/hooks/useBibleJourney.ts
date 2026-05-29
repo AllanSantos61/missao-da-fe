@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { completeJourneyDay, getJourneyDay } from "@/services/bibleJourneyService";
+import { completeJourneyDay, completeJourneyPart, getJourneyDay } from "@/services/bibleJourneyService";
 import type { CurrentReadingState } from "@/types/bibleJourney";
 
 export function useBibleJourney(playerName: string) {
@@ -34,6 +34,13 @@ export function useBibleJourney(playerName: string) {
     isCompleting,
     reloadJourney: loadJourney,
     selectJourneyDay: loadJourney,
-    completeReading
+    completeReading,
+    completeJourneyPart: async (dayNumber: number, part: "reading" | "quiz" | "word", xp?: number) => {
+      setIsCompleting(true);
+      const state = await completeJourneyPart(playerName, dayNumber, part, xp);
+      setJourney(state);
+      setIsCompleting(false);
+      return state;
+    }
   };
 }

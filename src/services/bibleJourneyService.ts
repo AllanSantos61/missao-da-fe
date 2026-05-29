@@ -1,5 +1,6 @@
 import { fallbackNewTestamentReadings } from "@/data/newTestamentReadings";
 import { supabaseClient } from "@/lib/supabaseClient";
+import { getJourneyMission } from "@/services/journeyContentService";
 import * as localBibleJourneyService from "@/services/localBibleJourneyService";
 import type {
   BibleProgress,
@@ -50,9 +51,14 @@ type BibleReadingRow = {
 type JourneyProgressRow = {
   player_name: string;
   journey_start_date: string;
+  current_journey_day?: number | null;
+  highest_unlocked_day?: number | null;
+  completed_days?: number | null;
   current_streak: number | null;
   best_streak: number | null;
   total_xp: number | null;
+  weekly_xp?: number | null;
+  last_completed_date?: string | null;
   last_access_date?: string | null;
 };
 
@@ -61,9 +67,12 @@ type JourneyDayRow = {
   player_name: string;
   day_number: number;
   status: JourneyDayStatus;
+  reading_completed: boolean | null;
+  quiz_completed: boolean | null;
+  word_completed: boolean | null;
   completed_at: string | null;
   completed_date: string | null;
-  xp_earned: number | null;
+  total_xp_earned: number | null;
 };
 
 function getPlayerName(playerName: string) {
@@ -143,7 +152,10 @@ function mapPlanReading(row: ReadingPlanRow): BibleReading {
 }
 
 function buildProgress(playerName: string, row: JourneyProgressRow, completedRows: JourneyDayRow[]): BibleProgress {
-  const completedDays = completedRows.map((day) => day.day_number).sort((a, b) => a - b);
+  const completedDays = completedRows
+    .filter((day) => day.status === "completed")
+    .map((day) => day.day_number)
+    .sort((a, b) => a - b);
   const lastCompletedDate =
     completedRows
       .map((day) => day.completed_date)
@@ -167,7 +179,7 @@ function buildProgress(playerName: string, row: JourneyProgressRow, completedRow
     lastCompletedDate,
     currentStreak: row.current_streak ?? 0,
     bestStreak: row.best_streak ?? 0,
-    totalXp: row.total_xp ?? completedRows.reduce((total, day) => total + Number(day.xp_earned ?? 0), 0),
+    totalXp: row.total_xp ?? completedRows.reduce((total, day) => total + Number(day.total_xp_earned ?? 0), 0),
     completedReadings: completedDays.length,
     totalReadings: TOTAL_READINGS,
     pendingCount: missedDays.length
@@ -183,7 +195,10 @@ function buildCalendar(progress: BibleProgress, completedRows: JourneyDayRow[]):
     return {
       dayNumber,
       status: getJourneyDayStatus(dayNumber, progress.completedDays, progress.availableJourneyDay),
-      xpEarned: completed?.xp_earned ?? 0,
+      readingCompleted: Boolean(completed?.reading_completed),
+      quizCompleted: Boolean(completed?.quiz_completed),
+      wordCompleted: Boolean(completed?.word_completed),
+      xpEarned: completed?.total_xp_earned ?? 0,
       completedDate: completed?.completed_date ?? null
     };
   });
@@ -214,9 +229,13 @@ async function getOrCreateJourneyProgress(playerName: string): Promise<JourneyPr
     .insert({
       player_name: playerName,
       journey_start_date: today,
+      current_journey_day: 1,
+      highest_unlocked_day: 1,
+      completed_days: 0,
       current_streak: 0,
       best_streak: 0,
       total_xp: 0,
+      weekly_xp: 0,
       last_access_date: today,
       updated_at: new Date().toISOString()
     })
@@ -231,10 +250,9 @@ async function getCompletedDays(playerName: string): Promise<JourneyDayRow[]> {
   if (!supabaseClient) throw new Error("Supabase not configured.");
 
   const result = await supabaseClient
-    .from("user_journey_days")
+    .from("user_journey_day_status")
     .select("*")
     .eq("player_name", playerName)
-    .eq("status", "completed")
     .order("day_number", { ascending: true });
 
   if (result.error) throw result.error;
@@ -268,11 +286,25 @@ async function buildState(playerName: string, selectedDay?: number): Promise<Cur
   const completedRows = await getCompletedDays(playerName);
   const progress = buildProgress(playerName, progressRow, completedRows);
   const dayNumber = Math.min(Math.max(selectedDay ?? progress.currentJourneyDay, 1), TOTAL_READINGS);
-  const reading = await getReading(dayNumber);
+  const mission = await getJourneyMission(dayNumber);
+  const reading: BibleReading = {
+    orderIndex: mission.dayNumber,
+    testament: "novo_testamento",
+    book: mission.bibleBook,
+    chapterStart: mission.chapterStart,
+    verseStart: mission.verseStart,
+    chapterEnd: mission.chapterEnd,
+    verseEnd: mission.verseEnd,
+    reference: mission.bibleReference,
+    title: mission.title,
+    estimatedMinutes: mission.estimatedMinutes,
+    xpReward: mission.readingXp
+  };
 
   return {
     reading,
     selectedDay: dayNumber,
+    mission,
     progress,
     calendar: buildCalendar(progress, completedRows),
     source: "supabase",
@@ -322,6 +354,15 @@ export async function getJourneyDay(playerNameInput: string, dayNumber?: number)
 }
 
 export async function completeJourneyDay(playerNameInput: string, dayNumber: number): Promise<CurrentReadingState> {
+  return completeJourneyPart(playerNameInput, dayNumber, "reading");
+}
+
+export async function completeJourneyPart(
+  playerNameInput: string,
+  dayNumber: number,
+  part: "reading" | "quiz" | "word",
+  xpOverride?: number
+): Promise<CurrentReadingState> {
   const playerName = getPlayerName(playerNameInput);
 
   try {
@@ -350,18 +391,46 @@ export async function completeJourneyDay(playerNameInput: string, dayNumber: num
         : lastCompletedDate === addDays(today, -1)
           ? Number(progressRow.current_streak ?? 0) + 1
           : 1;
-    const xpEarned = state.reading.xpReward ?? READING_XP;
+    const partColumn =
+      part === "reading" ? "reading_completed" : part === "quiz" ? "quiz_completed" : "word_completed";
+    const xpEarned = xpOverride ?? (part === "reading" ? state.reading.xpReward : part === "quiz" ? state.mission?.quizXp : state.mission?.wordXp) ?? READING_XP;
+    const existingStatus = await supabaseClient
+      .from("user_journey_day_status")
+      .select("*")
+      .eq("player_name", playerName)
+      .eq("day_number", dayNumber)
+      .maybeSingle();
 
-    const dayInsert = await supabaseClient.from("user_journey_days").insert({
+    if (existingStatus.error) throw existingStatus.error;
+
+    const currentStatus = existingStatus.data as JourneyDayRow | null;
+    if (currentStatus?.[partColumn as keyof JourneyDayRow]) {
+      return state;
+    }
+
+    const readingCompleted = part === "reading" ? true : Boolean(currentStatus?.reading_completed);
+    const quizCompleted = part === "quiz" ? true : Boolean(currentStatus?.quiz_completed);
+    const wordCompleted = part === "word" ? true : Boolean(currentStatus?.word_completed);
+    const isDayCompleted = readingCompleted && quizCompleted && wordCompleted;
+    const status: JourneyDayStatus = isDayCompleted ? "completed" : dayNumber === state.progress.availableJourneyDay ? "available" : "pending";
+    const statusPayload = {
       player_name: playerName,
       day_number: dayNumber,
-      status: "completed",
-      completed_at: new Date().toISOString(),
-      completed_date: today,
-      xp_earned: xpEarned
-    });
+      status,
+      reading_completed: readingCompleted,
+      quiz_completed: quizCompleted,
+      word_completed: wordCompleted,
+      total_xp_earned: Number(currentStatus?.total_xp_earned ?? 0) + xpEarned,
+      completed_at: isDayCompleted ? new Date().toISOString() : currentStatus?.completed_at,
+      completed_date: isDayCompleted ? today : currentStatus?.completed_date,
+      updated_at: new Date().toISOString()
+    };
 
-    if (dayInsert.error) throw dayInsert.error;
+    const dayWrite = currentStatus?.id
+      ? await supabaseClient.from("user_journey_day_status").update(statusPayload).eq("id", currentStatus.id)
+      : await supabaseClient.from("user_journey_day_status").insert(statusPayload);
+
+    if (dayWrite.error) throw dayWrite.error;
 
     const progressUpdate = await supabaseClient
       .from("user_journey_progress")
@@ -369,6 +438,13 @@ export async function completeJourneyDay(playerNameInput: string, dayNumber: num
         current_streak: nextStreak,
         best_streak: Math.max(Number(progressRow.best_streak ?? 0), nextStreak),
         total_xp: Number(progressRow.total_xp ?? 0) + xpEarned,
+        weekly_xp: Number(progressRow.weekly_xp ?? 0) + xpEarned,
+        completed_days: isDayCompleted ? state.progress.completedReadings + 1 : state.progress.completedReadings,
+        current_journey_day: isDayCompleted
+          ? Math.min(Math.max(...state.progress.completedDays, dayNumber) + 1, TOTAL_READINGS)
+          : state.progress.currentJourneyDay,
+        highest_unlocked_day: state.progress.availableJourneyDay,
+        last_completed_date: isDayCompleted ? today : progressRow.last_completed_date,
         last_access_date: today,
         updated_at: new Date().toISOString()
       })
@@ -382,7 +458,7 @@ export async function completeJourneyDay(playerNameInput: string, dayNumber: num
     return buildState(playerName, nextDay);
   } catch (error) {
     console.warn("Bible journey completion failed; using local fallback.", error);
-    return localBibleJourneyService.completeJourneyDay(playerName, dayNumber);
+    return localBibleJourneyService.completeJourneyPart(playerName, dayNumber, part, xpOverride);
   }
 }
 

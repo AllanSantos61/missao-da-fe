@@ -20,6 +20,9 @@ export type BibleReading = {
 export type JourneyCalendarDay = {
   dayNumber: number;
   status: JourneyDayStatus;
+  readingCompleted: boolean;
+  quizCompleted: boolean;
+  wordCompleted: boolean;
   xpEarned: number;
   completedDate?: string | null;
 };
@@ -42,9 +45,38 @@ export type BibleProgress = {
   pendingCount: number;
 };
 
+export type JourneyQuizQuestion = {
+  id: string;
+  questionOrder: number;
+  question: string;
+  options: string[];
+  correctAnswer: string;
+  explanation?: string | null;
+};
+
+export type JourneyDayMission = {
+  dayNumber: number;
+  title: string;
+  bibleReference: string;
+  bibleBook: string;
+  chapterStart: number;
+  verseStart?: number | null;
+  chapterEnd?: number | null;
+  verseEnd?: number | null;
+  estimatedMinutes: number;
+  faithWord: string;
+  normalizedFaithWord: string;
+  readingXp: number;
+  quizXp: number;
+  wordXp: number;
+  quizQuestions: JourneyQuizQuestion[];
+  source: "supabase" | "local";
+};
+
 export type CurrentReadingState = {
   reading: BibleReading;
   selectedDay: number;
+  mission?: JourneyDayMission;
   progress: BibleProgress;
   calendar: JourneyCalendarDay[];
   source: "supabase" | "local";

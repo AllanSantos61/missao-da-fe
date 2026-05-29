@@ -46,7 +46,8 @@ export default function Home() {
     isLoading: isJourneyLoading,
     isCompleting: isJourneyCompleting,
     selectJourneyDay,
-    completeReading
+    completeReading,
+    completeJourneyPart
   } = useBibleJourney(progress?.playerName ?? "");
 
   useEffect(() => {
@@ -114,6 +115,54 @@ export default function Home() {
   }
 
   const selectedResult = selectedChallenge ? todayHistory.results[selectedChallenge] : undefined;
+  const selectedJourneyDay = journey?.calendar.find((day) => day.dayNumber === journey.selectedDay);
+  const journeyQuizData = journey?.mission
+    ? {
+        title: `Quiz do Dia ${journey.selectedDay}`,
+        xp: journey.mission.quizXp,
+        questions: journey.mission.quizQuestions.map((question) => ({
+          id: question.id,
+          question: question.question,
+          options: question.options,
+          correctAnswer: question.correctAnswer,
+          explanation: question.explanation
+        }))
+      }
+    : dailyChallengeContent.quiz;
+  const journeyWordData = journey?.mission
+    ? {
+        title: `Palavra do Dia ${journey.selectedDay}`,
+        secret: journey.mission.normalizedFaithWord,
+        xp: journey.mission.wordXp
+      }
+    : dailyChallengeContent.word;
+  const journeyQuizResult =
+    selectedJourneyDay?.quizCompleted
+      ? {
+          id: "quiz" as const,
+          completedAt: selectedJourneyDay.completedDate ?? new Date().toISOString(),
+          xpEarned: journey?.mission?.quizXp ?? dailyChallengeContent.quiz.xp,
+          scoreLabel: "Concluído",
+          quiz: { score: 3, total: 3, answers: {} }
+        }
+      : undefined;
+  const journeyWordResult =
+    selectedJourneyDay?.wordCompleted
+      ? {
+          id: "word" as const,
+          completedAt: selectedJourneyDay.completedDate ?? new Date().toISOString(),
+          xpEarned: journey?.mission?.wordXp ?? dailyChallengeContent.word.xp,
+          scoreLabel: "Concluído",
+          word: { solved: true, attempts: 0, guesses: [] }
+        }
+      : undefined;
+
+  function handleJourneyPartComplete(part: "quiz" | "word", result: DailyChallengeResult) {
+    handleComplete(result);
+    if (journey) {
+      void completeJourneyPart(journey.selectedDay, part, result.xpEarned);
+    }
+  }
 
   return (
     <main className="min-h-screen bg-parchment px-4 pb-6 text-ink">
@@ -246,11 +295,11 @@ export default function Home() {
 
         {selectedChallenge === "quiz" ? (
           <QuizFaith
-            data={dailyChallengeContent.quiz}
-            savedResult={selectedResult}
+            data={journeyQuizData}
+            savedResult={journeyQuizResult}
             progress={progress}
             todayHistory={todayHistory}
-            onComplete={handleComplete}
+            onComplete={(result) => handleJourneyPartComplete("quiz", result)}
             onNextMission={() => goToNextMission("quiz")}
             nextMissionLabel={getNextMissionLabel("quiz")}
             onBack={goHome}
@@ -259,11 +308,11 @@ export default function Home() {
 
         {selectedChallenge === "word" ? (
           <WordFaithGame
-            data={dailyChallengeContent.word}
-            savedResult={selectedResult}
+            data={journeyWordData}
+            savedResult={journeyWordResult}
             progress={progress}
             todayHistory={todayHistory}
-            onComplete={handleComplete}
+            onComplete={(result) => handleJourneyPartComplete("word", result)}
             onNextMission={() => goToNextMission("word")}
             nextMissionLabel={getNextMissionLabel("word")}
             onBack={goHome}
