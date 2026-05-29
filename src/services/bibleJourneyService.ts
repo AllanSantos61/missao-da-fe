@@ -23,6 +23,7 @@ function logJourneyError(message: string, error: unknown) {
 }
 
 type JourneyProgressRow = {
+  id?: string;
   user_id?: string | null;
   player_name: string;
   journey_start_date: string;
@@ -35,6 +36,13 @@ type JourneyProgressRow = {
   weekly_xp?: number | null;
   last_completed_date?: string | null;
   last_access_date?: string | null;
+};
+
+type ProfileRow = {
+  id: string;
+  total_xp: number | null;
+  weekly_xp: number | null;
+  best_streak: number | null;
 };
 
 type JourneyDayRow = {
@@ -127,6 +135,10 @@ function buildCalendar(progress: BibleProgress, completedRows: JourneyDayRow[]):
 }
 
 async function getOrCreateJourneyProgress(userIdInput: string, playerName: string): Promise<JourneyProgressRow> {
+  return ensureJourneyProgress(userIdInput, playerName);
+}
+
+async function ensureJourneyProgress(userIdInput: string, playerName: string): Promise<JourneyProgressRow> {
   if (!supabaseClient) throw new Error("Supabase not configured.");
 
   const userId = getUserId(userIdInput);
@@ -135,52 +147,69 @@ async function getOrCreateJourneyProgress(userIdInput: string, playerName: strin
     .from("user_journey_progress")
     .select("*")
     .eq("user_id", userId)
-    .maybeSingle();
+    .order("updated_at", { ascending: false, nullsFirst: false })
+    .limit(1);
 
   if (existing.error) throw existing.error;
 
   const today = getTodayKey();
-  if (existing.data) {
-    const existingRow = existing.data as JourneyProgressRow;
+  const existingRow = (existing.data?.[0] ?? null) as JourneyProgressRow | null;
+  if (existingRow) {
     const highestUnlockedDay = getAvailableJourneyDay(existingRow.journey_start_date);
     logJourney("Progress found", {
       playerName,
       journeyStartDate: existingRow.journey_start_date,
       highestUnlockedDay
     });
-    await supabaseClient
+    const updateQuery = supabaseClient
       .from("user_journey_progress")
       .update({
         last_access_date: today,
         highest_unlocked_day: highestUnlockedDay,
         updated_at: new Date().toISOString()
-      })
-      .eq("user_id", userId);
+      });
+
+    if (existingRow.id) {
+      await updateQuery.eq("id", existingRow.id);
+    } else {
+      await updateQuery.eq("user_id", userId);
+    }
     return { ...existingRow, last_access_date: today, highest_unlocked_day: highestUnlockedDay };
   }
 
   logJourney("Creating initial progress", { playerName, journeyStartDate: today });
+  const payload = {
+    player_name: playerName,
+    user_id: userId,
+    local_user_id: userId,
+    journey_start_date: today,
+    current_journey_day: 1,
+    highest_unlocked_day: 1,
+    completed_days: 0,
+    current_streak: 0,
+    best_streak: 0,
+    total_xp: 0,
+    weekly_xp: 0,
+    last_access_date: today,
+    updated_at: new Date().toISOString()
+  };
+
+  const upserted = await supabaseClient
+    .from("user_journey_progress")
+    .upsert(payload, { onConflict: "user_id" })
+    .select("*")
+    .limit(1);
+
+  if (!upserted.error && upserted.data?.[0]) return upserted.data[0] as JourneyProgressRow;
+
   const created = await supabaseClient
     .from("user_journey_progress")
-    .insert({
-      player_name: playerName,
-      user_id: userId,
-      journey_start_date: today,
-      current_journey_day: 1,
-      highest_unlocked_day: 1,
-      completed_days: 0,
-      current_streak: 0,
-      best_streak: 0,
-      total_xp: 0,
-      weekly_xp: 0,
-      last_access_date: today,
-      updated_at: new Date().toISOString()
-    })
+    .insert(payload)
     .select("*")
-    .single();
+    .limit(1);
 
   if (created.error) throw created.error;
-  return created.data as JourneyProgressRow;
+  return created.data?.[0] as JourneyProgressRow;
 }
 
 async function getCompletedDays(userIdInput: string, playerName: string): Promise<JourneyDayRow[]> {
@@ -257,24 +286,27 @@ async function syncProfileXP(userIdInput: string, playerName: string, xp: number
     .from("profiles")
     .select("id, total_xp, weekly_xp, best_streak")
     .eq("user_id", userId)
-    .maybeSingle();
+    .order("created_at", { ascending: false, nullsFirst: false })
+    .limit(1);
 
   if (profile.error) return;
+  const profileRow = (profile.data?.[0] ?? null) as ProfileRow | null;
 
   const payload = {
     player_name: playerName,
     user_id: userId,
     local_user_id: userId,
-    total_xp: Number(profile.data?.total_xp ?? 0) + xp,
-    weekly_xp: Number(profile.data?.weekly_xp ?? 0) + xp,
+    total_xp: Number(profileRow?.total_xp ?? 0) + xp,
+    weekly_xp: Number(profileRow?.weekly_xp ?? 0) + xp,
     current_streak: currentStreak,
-    best_streak: Math.max(Number(profile.data?.best_streak ?? 0), bestStreak)
+    best_streak: Math.max(Number(profileRow?.best_streak ?? 0), bestStreak)
   };
 
-  if (profile.data?.id) {
-    await supabaseClient.from("profiles").update(payload).eq("id", profile.data.id);
+  if (profileRow?.id) {
+    await supabaseClient.from("profiles").update(payload).eq("id", profileRow.id);
   } else {
-    await supabaseClient.from("profiles").insert(payload);
+    const upserted = await supabaseClient.from("profiles").upsert(payload, { onConflict: "user_id" });
+    if (upserted.error) await supabaseClient.from("profiles").insert(payload);
   }
   logJourney("Ranking/profile XP updated", { playerName, weeklyXpDelta: xp });
 }
@@ -354,11 +386,12 @@ export async function completeJourneyPart(
       .select("*")
       .eq("user_id", userId)
       .eq("day_number", dayNumber)
-      .maybeSingle();
+      .order("updated_at", { ascending: false, nullsFirst: false })
+      .limit(1);
 
     if (existingStatus.error) throw existingStatus.error;
 
-    const currentStatus = existingStatus.data as JourneyDayRow | null;
+    const currentStatus = (existingStatus.data?.[0] ?? null) as JourneyDayRow | null;
     if (currentStatus?.[partColumn as keyof JourneyDayRow]) {
       logJourney("Part already completed", { playerName, dayNumber, part });
       return state;

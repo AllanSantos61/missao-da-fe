@@ -16,6 +16,14 @@ type ProfileRankingRow = {
   weekly_xp: number | null;
 };
 
+type ProfileRow = {
+  id: string;
+  total_xp?: number | null;
+  weekly_xp?: number | null;
+  current_streak?: number | null;
+  best_streak?: number | null;
+};
+
 const challengeTypeMap: Record<ChallengeId, string> = {
   gospel: "evangelho",
   quiz: "quiz",
@@ -33,6 +41,69 @@ function logSupabaseError(message: string, error: unknown) {
 function isMissingColumn(error: unknown, columnName: string) {
   const supabaseError = error as { code?: string; message?: string };
   return supabaseError.code === "42703" || Boolean(supabaseError.message?.includes(columnName));
+}
+
+async function findProfileByUserId(userId: string, playerName?: string): Promise<ProfileRow | null> {
+  if (!supabaseClient) return null;
+
+  const byUserId = await supabaseClient
+    .from("profiles")
+    .select("id, total_xp, weekly_xp, current_streak, best_streak")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false, nullsFirst: false })
+    .limit(1);
+
+  if (!byUserId.error) return ((byUserId.data?.[0] ?? null) as ProfileRow | null);
+  if (!playerName || !isMissingColumn(byUserId.error, "user_id")) throw byUserId.error;
+
+  const byPlayerName = await supabaseClient
+    .from("profiles")
+    .select("id, total_xp, weekly_xp, current_streak, best_streak")
+    .eq("player_name", playerName)
+    .order("created_at", { ascending: false, nullsFirst: false })
+    .limit(1);
+
+  if (byPlayerName.error) throw byPlayerName.error;
+  return ((byPlayerName.data?.[0] ?? null) as ProfileRow | null);
+}
+
+export async function ensureUserProfile(progress: UserProgress): Promise<ProfileRow | null> {
+  if (!supabaseClient || !progress.playerName) return null;
+
+  const payload = {
+    user_id: progress.anonymousUserId,
+    local_user_id: progress.localUserId,
+    player_name: progress.playerName,
+    total_xp: progress.totalXP,
+    weekly_xp: progress.weeklyXP,
+    current_streak: progress.currentStreak,
+    best_streak: progress.bestStreak
+  };
+
+  const existingProfile = await findProfileByUserId(progress.anonymousUserId, progress.playerName);
+
+  if (existingProfile?.id) {
+    const { error } = await supabaseClient.from("profiles").update(payload).eq("id", existingProfile.id);
+    if (error) throw error;
+    return existingProfile;
+  }
+
+  const upsertResult = await supabaseClient
+    .from("profiles")
+    .upsert(payload, { onConflict: "user_id" })
+    .select("id, total_xp, weekly_xp, current_streak, best_streak")
+    .limit(1);
+
+  if (!upsertResult.error) return ((upsertResult.data?.[0] ?? null) as ProfileRow | null);
+
+  const insertResult = await supabaseClient
+    .from("profiles")
+    .insert(payload)
+    .select("id, total_xp, weekly_xp, current_streak, best_streak")
+    .limit(1);
+
+  if (insertResult.error) throw insertResult.error;
+  return ((insertResult.data?.[0] ?? null) as ProfileRow | null);
 }
 
 function getWeekStartKey(date = new Date()) {
@@ -124,49 +195,12 @@ export async function syncProgress(progress: UserProgress) {
     weeklyXP: progress.weeklyXP
   });
 
-  let existingProfile = await supabaseClient
-    .from("profiles")
-    .select("id")
-    .eq("user_id", progress.anonymousUserId)
-    .maybeSingle();
-
-  if (existingProfile.error && isMissingColumn(existingProfile.error, "user_id")) {
-    existingProfile = await supabaseClient
-      .from("profiles")
-      .select("id")
-      .eq("player_name", progress.playerName)
-      .maybeSingle();
-  }
-
-  if (existingProfile.error) {
-    logSupabaseError("Select profile failed", existingProfile.error);
-    throw existingProfile.error;
-  }
-
-  const payload = {
-    user_id: progress.anonymousUserId,
-    local_user_id: progress.localUserId,
-    player_name: progress.playerName,
-    total_xp: progress.totalXP,
-    weekly_xp: progress.weeklyXP,
-    current_streak: progress.currentStreak,
-    best_streak: progress.bestStreak
-  };
-
-  if (existingProfile.data?.id) {
-    const { error } = await supabaseClient.from("profiles").update(payload).eq("id", existingProfile.data.id);
-    if (error) {
-      logSupabaseError("Update profile failed", error);
-      throw error;
-    }
-    logSupabase("Insert success", { table: "profiles", mode: "update" });
-  } else {
-    const { error } = await supabaseClient.from("profiles").insert(payload);
-    if (error) {
-      logSupabaseError("Insert failed", error);
-      throw error;
-    }
-    logSupabase("Insert success", { table: "profiles", mode: "insert" });
+  try {
+    await ensureUserProfile(progress);
+    logSupabase("Insert success", { table: "profiles", mode: "ensure" });
+  } catch (error) {
+    logSupabaseError("Ensure profile failed", error);
+    throw error;
   }
 
   for (const day of Object.values(progress.dailyHistory)) {
@@ -186,34 +220,11 @@ export async function updateWeeklyXP(progress: UserProgress) {
     weeklyXP: progress.weeklyXP
   });
 
-  const updateResult = await supabaseClient
-    .from("profiles")
-    .update({
-      weekly_xp: progress.weeklyXP,
-      total_xp: progress.totalXP,
-      current_streak: progress.currentStreak,
-      best_streak: progress.bestStreak
-    })
-    .eq("user_id", progress.anonymousUserId);
-
-  if (updateResult.error && isMissingColumn(updateResult.error, "user_id")) {
-    const fallbackResult = await supabaseClient
-      .from("profiles")
-      .update({
-        weekly_xp: progress.weeklyXP,
-        total_xp: progress.totalXP,
-        current_streak: progress.currentStreak,
-        best_streak: progress.bestStreak
-      })
-      .eq("player_name", progress.playerName);
-
-    if (fallbackResult.error) {
-      logSupabaseError("Update weekly XP failed", fallbackResult.error);
-      throw fallbackResult.error;
-    }
-  } else if (updateResult.error) {
-    logSupabaseError("Update weekly XP failed", updateResult.error);
-    throw updateResult.error;
+  try {
+    await ensureUserProfile(progress);
+  } catch (error) {
+    logSupabaseError("Update weekly XP failed", error);
+    throw error;
   }
   logSupabase("Insert success", { table: "profiles", mode: "weekly_xp_update" });
 }
