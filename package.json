@@ -12,7 +12,7 @@
     "seed:bible": "tsx scripts/seedBibleReadings.ts",
     "seed:plan": "tsx scripts/seedReadingPlan.ts",
     "db:create-journey": "node -e \"console.log('Abra scripts/createJourneyTables.sql no SQL Editor do Supabase e execute o arquivo.')\"",
-    "seed:journey": "tsx scripts/seedJourneyDays.ts",
+    "seed:journey": "tsx scripts/seedJourneyContent.ts",
     "seed:quiz": "tsx scripts/seedJourneyQuiz.ts",
     "seed:content": "tsx scripts/seedJourneyContent.ts"
   },
