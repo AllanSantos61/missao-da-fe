@@ -61,3 +61,20 @@ export function generateShareMessage({
 export function buildWhatsAppShareUrl(params: ShareMessageParams) {
   return `https://wa.me/?text=${encodeURIComponent(generateShareMessage(params))}`;
 }
+
+export function buildStandaloneWordShareUrl(params: {
+  attempts: number;
+  solved: boolean;
+  url: string;
+}) {
+  const message = [
+    "🙏 Descobri a Palavra da Fé de hoje!",
+    "",
+    `✝️ Palavra: ${params.solved ? `${params.attempts}/6` : "quase consegui"}`,
+    "Agora vou completar minha Missão da Fé.",
+    "",
+    params.url
+  ].join("\n");
+
+  return `https://wa.me/?text=${encodeURIComponent(message)}`;
+}

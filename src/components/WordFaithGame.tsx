@@ -12,6 +12,10 @@ type WordFaithGameProps = {
   savedResult?: DailyChallengeResult;
   progress: UserProgress;
   todayHistory: DayHistory;
+  wordMode?: "mission" | "standalone";
+  ctaLabel?: string;
+  onStandaloneShare?: (result: DailyChallengeResult) => void;
+  autoAdvanceOnComplete?: boolean;
   onComplete: (result: DailyChallengeResult) => void;
   onNextMission: () => void;
   nextMissionLabel: string;
@@ -39,6 +43,10 @@ export function WordFaithGame({
   savedResult,
   progress,
   todayHistory,
+  wordMode = "mission",
+  ctaLabel,
+  onStandaloneShare,
+  autoAdvanceOnComplete = true,
   onComplete,
   onNextMission,
   nextMissionLabel,
@@ -70,7 +78,7 @@ export function WordFaithGame({
   }, [guesses, secret]);
 
   function finish(nextGuesses: string[], didSolve: boolean) {
-    onComplete({
+    const result: DailyChallengeResult = {
       id: "word",
       completedAt: new Date().toISOString(),
       xpEarned: didSolve ? data.xp : Math.round(data.xp / 2),
@@ -80,8 +88,9 @@ export function WordFaithGame({
         attempts: nextGuesses.length,
         guesses: nextGuesses
       }
-    });
-    window.setTimeout(onNextMission, 250);
+    };
+    onComplete(result);
+    if (autoAdvanceOnComplete) window.setTimeout(onNextMission, 250);
   }
 
   function handleSubmitGuess() {
@@ -154,10 +163,14 @@ export function WordFaithGame({
       <div className="mt-3">
         <ChallengeStatusStrip challengeId="word" xp={data.xp} progress={progress} todayHistory={todayHistory} />
       </div>
-      <p className="mt-4 text-xs font-black uppercase tracking-wide text-gold sm:mt-5">Palavra da Fé</p>
+      <p className="mt-4 text-xs font-black uppercase tracking-wide text-gold sm:mt-5">
+        {wordMode === "standalone" ? "Palavra da Fé avulsa" : "Palavra da Fé"}
+      </p>
       <h2 className="mt-1 text-2xl font-black text-ink sm:mt-2 sm:text-3xl">{data.title}</h2>
       <p className="mt-1 text-sm leading-6 text-ink/68 sm:mt-2 sm:text-base sm:leading-7">
-        Descubra a palavra católica de 5 letras.
+        {wordMode === "standalone"
+          ? "Descubra a palavra católica de 5 letras e depois complete sua missão."
+          : "Descubra a palavra católica de 5 letras."}
       </p>
 
       <div className="mx-auto mt-4 space-y-1.5 sm:mt-5 sm:space-y-2">
@@ -233,8 +246,29 @@ export function WordFaithGame({
       {error ? <p className="mt-2 text-sm font-bold text-wine sm:mt-3">{error}</p> : null}
 
       {completed ? (
-        <div className="mt-4 rounded-2xl bg-faithGreen/12 px-4 py-3 text-center font-black text-faithGreen sm:mt-5 sm:py-4">
-          Resultado salvo: {savedResult?.scoreLabel} · palavra {secret}
+        <div className="mt-4 space-y-3 sm:mt-5">
+          <div className="rounded-2xl bg-faithGreen/12 px-4 py-3 text-center font-black text-faithGreen sm:py-4">
+            Resultado salvo: {savedResult?.scoreLabel} · palavra {secret}
+          </div>
+          {wordMode === "standalone" ? (
+            <div className="rounded-2xl bg-white p-4 text-center shadow-sm">
+              <p className="text-sm font-black text-navy">Agora complete sua missão de hoje.</p>
+              <p className="mt-1 text-xs font-bold leading-5 text-ink/60">
+                A Palavra avulsa dá XP menor e não conclui a Jornada.
+              </p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                <button onClick={onNextMission} className="rounded-xl bg-navy px-4 py-3 text-sm font-black text-white">
+                  {ctaLabel ?? "Completar Missão da Fé"}
+                </button>
+                <button
+                  onClick={() => savedResult && onStandaloneShare?.(savedResult)}
+                  className="rounded-xl bg-faithGreen px-4 py-3 text-sm font-black text-white"
+                >
+                  Compartilhar Palavra
+                </button>
+              </div>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </section>

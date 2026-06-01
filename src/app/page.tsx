@@ -20,7 +20,9 @@ import { useDailyChallengeContent } from "@/hooks/useDailyChallengeContent";
 import { useDailyProgress } from "@/hooks/useDailyProgress";
 import { useJourneyMissionState } from "@/hooks/useJourneyMissionState";
 import { trackEvent } from "@/services/analyticsService";
+import { saveStandaloneWordResult } from "@/services/supabaseProgressService";
 import type { ChallengeId, DailyChallengeResult, UserProgress } from "@/types/dailyProgress";
+import { buildStandaloneWordShareUrl } from "@/utils/share";
 
 const missionSteps: Array<{ id: ChallengeId; label: string; description: string }> = [
   { id: "gospel", label: "Leitura", description: "Leia o trecho do Novo Testamento de hoje." },
@@ -47,6 +49,8 @@ function getJourneyAvatar(day: number) {
 export default function Home() {
   const router = useRouter();
   const [selectedChallenge, setSelectedChallenge] = useState<ChallengeId | null>(null);
+  const [wordMode, setWordMode] = useState<"mission" | "standalone">("mission");
+  const [standaloneWordResult, setStandaloneWordResult] = useState<DailyChallengeResult | undefined>();
   const [homeNotice, setHomeNotice] = useState("");
   const [showNameModal, setShowNameModal] = useState(false);
   const [showRankingModal, setShowRankingModal] = useState(false);
@@ -61,6 +65,7 @@ export default function Home() {
     updatePlayerName,
     updateCommunity,
     updateReminderPreference,
+    addXP,
     completeOnboarding
   } = useDailyProgress();
   const {
@@ -98,6 +103,10 @@ export default function Home() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const mission = new URLSearchParams(window.location.search).get("missao");
+    if (mission === "palavra-avulsa") {
+      openStandaloneWord();
+      return;
+    }
     if (mission === "gospel" || mission === "quiz" || mission === "word") {
       selectChallenge(mission);
     }
@@ -157,19 +166,39 @@ export default function Home() {
     });
   }
 
-  function selectChallenge(challengeId: ChallengeId) {
+  function openStandaloneWord() {
+    setWordMode("standalone");
+    setHomeNotice("");
+    setSelectedChallenge("word");
+    router.push("/?missao=palavra-avulsa", { scroll: false });
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    void trackEvent({
+      eventName: "word_started",
+      userId: progress?.anonymousUserId,
+      playerName: progress?.playerName,
+      metadata: { mode: "standalone", journeyDay: todayMissionState.currentMissionDay }
+    });
+  }
+
+  function selectChallenge(challengeId: ChallengeId, mode: "mission" | "standalone" = "mission") {
+    if (challengeId === "word" && mode === "standalone") {
+      openStandaloneWord();
+      return;
+    }
+
     if (challengeId === "quiz" && !todayMissionState.readingCompleted) {
       setHomeNotice("Conclua a leitura para liberar o Quiz.");
       void openMission("gospel");
       return;
     }
 
-    if (challengeId === "word" && !todayMissionState.quizCompleted) {
+    if (challengeId === "word" && mode === "mission" && !todayMissionState.quizCompleted) {
       setHomeNotice("Conclua o Quiz para liberar a Palavra da Fé.");
       void openMission(todayMissionState.readingCompleted ? "quiz" : "gospel");
       return;
     }
 
+    setWordMode(mode);
     setHomeNotice("");
     setSelectedChallenge(challengeId);
     void trackEvent({
@@ -195,6 +224,7 @@ export default function Home() {
   }
 
   async function openMission(challengeId: ChallengeId, dayNumber = todayMissionState.currentMissionDay) {
+    setWordMode("mission");
     if (journey && journey.selectedDay !== dayNumber) {
       await selectJourneyDay(dayNumber);
     }
@@ -278,6 +308,13 @@ export default function Home() {
         xp: journey.mission.wordXp
       }
     : null;
+  const standaloneWordData = journeyWordData
+    ? {
+        ...journeyWordData,
+        title: "Palavra da Fé de hoje",
+        xp: Math.max(5, Math.round(journeyWordData.xp * 0.35))
+      }
+    : null;
   const journeyQuizResult = selectedJourneyDay?.quizCompleted
     ? {
         id: "quiz" as const,
@@ -316,6 +353,41 @@ export default function Home() {
     }
   }
 
+  function handleStandaloneWordComplete(result: DailyChallengeResult) {
+    setStandaloneWordResult(result);
+    addXP(result.xpEarned);
+    if (progress) {
+      void saveStandaloneWordResult(progress, result).catch((error) => {
+        console.info("[Missão da Fé] Palavra avulsa salva apenas localmente.", error);
+      });
+      void trackEvent({
+        eventName: "word_completed",
+        userId: progress.anonymousUserId,
+        playerName: progress.playerName,
+        metadata: {
+          mode: "standalone",
+          xpEarned: result.xpEarned,
+          scoreLabel: result.scoreLabel,
+          journeyDay: todayMissionState.currentMissionDay
+        }
+      });
+    }
+  }
+
+  function shareStandaloneWord(result?: DailyChallengeResult) {
+    const wordResult = result?.word;
+    if (!wordResult || typeof window === "undefined") return;
+    window.open(
+      buildStandaloneWordShareUrl({
+        attempts: wordResult.attempts,
+        solved: wordResult.solved,
+        url: window.location.origin
+      }),
+      "_blank",
+      "noopener,noreferrer"
+    );
+  }
+
   function handleOnboardingComplete(playerName?: string) {
     completeOnboarding(playerName);
     void trackEvent({
@@ -342,7 +414,9 @@ export default function Home() {
         selectedChallenge={selectedChallenge}
         playerName={progress.playerName}
         onHome={goHome}
-        onSelectChallenge={selectChallenge}
+        onSelectChallenge={(challengeId) =>
+          challengeId === "word" ? selectChallenge("word", "standalone") : selectChallenge(challengeId)
+        }
         onOpenName={() => setShowNameModal(true)}
         onOpenRanking={openRanking}
         onOpenCommunity={() => setShowCommunityModal(true)}
@@ -635,20 +709,30 @@ export default function Home() {
           </section>
         ) : null}
 
-        {selectedChallenge === "word" && journeyWordData ? (
+        {selectedChallenge === "word" && (wordMode === "standalone" ? standaloneWordData : journeyWordData) ? (
           <WordFaithGame
-            data={journeyWordData}
-            savedResult={journeyWordResult}
+            data={(wordMode === "standalone" ? standaloneWordData : journeyWordData)!}
+            savedResult={wordMode === "standalone" ? standaloneWordResult : journeyWordResult}
             progress={progress}
             todayHistory={todayHistory}
-            onComplete={(result) => handleJourneyPartComplete("word", result)}
-            onNextMission={() => goToNextMission("word")}
-            nextMissionLabel={getNextMissionLabel("word")}
+            wordMode={wordMode}
+            autoAdvanceOnComplete={wordMode === "mission"}
+            ctaLabel="Agora complete sua missão de hoje"
+            onStandaloneShare={shareStandaloneWord}
+            onComplete={(result) =>
+              wordMode === "standalone"
+                ? handleStandaloneWordComplete(result)
+                : handleJourneyPartComplete("word", result)
+            }
+            onNextMission={() =>
+              wordMode === "standalone" ? void openMission(todayMissionState.nextPendingStep ?? "gospel") : goToNextMission("word")
+            }
+            nextMissionLabel={wordMode === "standalone" ? "Completar Missão" : getNextMissionLabel("word")}
             onBack={goHome}
           />
         ) : null}
 
-        {selectedChallenge === "word" && journey && !journeyWordData ? (
+        {selectedChallenge === "word" && journey && !(wordMode === "standalone" ? standaloneWordData : journeyWordData) ? (
           <section className="rounded-[1.75rem] bg-white p-6 text-center shadow-card">
             <p className="font-black text-navy">Palavra da Fé indisponível para esta missão.</p>
             <button onClick={goHome} className="mt-4 rounded-2xl bg-navy px-5 py-3 font-black text-white">

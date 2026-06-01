@@ -15,6 +15,7 @@ import {
   hasCompletedChallengeToday,
   resetDailyStateIfNeeded,
   saveUserProgress,
+  addXP as addXPInService,
   updateCommunity as updateCommunityInService,
   updatePlayerName as updatePlayerNameInService,
   updateReminderPreference as updateReminderPreferenceInService
@@ -84,6 +85,13 @@ export function useDailyProgress() {
     });
   }, []);
 
+  const addXP = useCallback(function addXP(xp: number) {
+    setProgress((current) => {
+      if (!current) return current;
+      return addXPInService(current, xp);
+    });
+  }, []);
+
   return {
     progress,
     todayHistory,
@@ -93,6 +101,7 @@ export function useDailyProgress() {
     updatePlayerName,
     updateCommunity,
     updateReminderPreference,
+    addXP,
     completeOnboarding
   };
 }

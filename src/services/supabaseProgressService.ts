@@ -254,6 +254,44 @@ export async function saveChallengeResult(
   await upsertDailyResult(progress, getTodayKey(), challengeId, result);
 }
 
+export async function saveStandaloneWordResult(progress: UserProgress, result: DailyChallengeResult) {
+  if (!supabaseClient || !progress.playerName) return;
+
+  const challengeDate = getTodayKey();
+  const challengeType = "palavra_standalone";
+  const existingResult = await supabaseClient
+    .from("daily_results")
+    .select("id")
+    .eq("player_name", progress.playerName)
+    .eq("challenge_date", challengeDate)
+    .eq("challenge_type", challengeType)
+    .order("completed_at", { ascending: false, nullsFirst: false })
+    .limit(1);
+
+  if (existingResult.error) throw existingResult.error;
+
+  const payload = {
+    user_id: progress.anonymousUserId,
+    local_user_id: progress.localUserId,
+    player_name: progress.playerName,
+    challenge_date: challengeDate,
+    challenge_type: challengeType,
+    xp_earned: result.xpEarned,
+    completed: true,
+    completed_at: result.completedAt
+  };
+  const existingRow = (existingResult.data?.[0] ?? null) as ExistingDailyResultRow | null;
+
+  if (existingRow?.id) {
+    const { error } = await supabaseClient.from("daily_results").update(payload).eq("id", existingRow.id);
+    if (error) throw error;
+    return;
+  }
+
+  const { error } = await supabaseClient.from("daily_results").insert(payload);
+  if (error) throw error;
+}
+
 function getRankingFilterValue(progress: UserProgress, filter: RankingFilter) {
   if (filter === "city") return progress.community.city;
   if (filter === "parish") return progress.community.parish;
