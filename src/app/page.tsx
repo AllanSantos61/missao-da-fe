@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { AppTopBar } from "@/components/AppTopBar";
 import { CommunityModal } from "@/components/CommunityModal";
 import { DailyProgressHeader } from "@/components/DailyProgressHeader";
@@ -43,7 +44,9 @@ function getJourneyAvatar(day: number) {
 }
 
 export default function Home() {
+  const router = useRouter();
   const [selectedChallenge, setSelectedChallenge] = useState<ChallengeId | null>(null);
+  const [homeNotice, setHomeNotice] = useState("");
   const [showNameModal, setShowNameModal] = useState(false);
   const [showRankingModal, setShowRankingModal] = useState(false);
   const [showCommunityModal, setShowCommunityModal] = useState(false);
@@ -90,6 +93,15 @@ export default function Home() {
     });
   }, [progress]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mission = new URLSearchParams(window.location.search).get("missao");
+    if (mission === "gospel" || mission === "quiz" || mission === "word") {
+      selectChallenge(mission);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const completedCount = todayHistory?.completedChallenges.length ?? 0;
   function handleComplete(result: DailyChallengeResult) {
     completeChallenge(result.id, result);
@@ -106,6 +118,8 @@ export default function Home() {
 
   function goHome() {
     setSelectedChallenge(null);
+    setHomeNotice("");
+    router.push("/");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -138,6 +152,7 @@ export default function Home() {
   }
 
   function selectChallenge(challengeId: ChallengeId) {
+    setHomeNotice("");
     setSelectedChallenge(challengeId);
     void trackEvent({
       eventName: challengeId === "gospel" ? "reading_started" : challengeId === "quiz" ? "quiz_started" : "word_started",
@@ -156,21 +171,69 @@ export default function Home() {
   }
 
   function getNextMission(currentChallenge: ChallengeId) {
-    if (!todayHistory) return null;
     const order: ChallengeId[] = ["gospel", "quiz", "word"];
+    if (!todayHistory) return null;
     const currentIndex = order.indexOf(currentChallenge);
     const rotatedOrder = [...order.slice(currentIndex + 1), ...order.slice(0, currentIndex + 1)];
-    return rotatedOrder.find((challengeId) => !todayHistory.completedChallenges.includes(challengeId)) ?? null;
+    return rotatedOrder.find((challengeId) => isMissionPending(challengeId)) ?? null;
+  }
+
+  function isMissionPending(challengeId: ChallengeId) {
+    if (!todayHistory) return true;
+    const calendarDay = journey?.calendar.find((day) => day.dayNumber === (journey?.selectedDay ?? journey?.progress.currentJourneyDay ?? 1));
+
+    if (challengeId === "gospel") {
+      return !Boolean(calendarDay?.readingCompleted || todayHistory.results.gospel);
+    }
+
+    if (challengeId === "quiz") {
+      return !Boolean(calendarDay?.quizCompleted || todayHistory.results.quiz);
+    }
+
+    return !Boolean(calendarDay?.wordCompleted || todayHistory.results.word);
+  }
+
+  function getFirstPendingMission() {
+    const order: ChallengeId[] = ["gospel", "quiz", "word"];
+    return order.find((challengeId) => isMissionPending(challengeId)) ?? null;
+  }
+
+  function openMission(challengeId: ChallengeId) {
+    selectChallenge(challengeId);
+    router.push(`/?missao=${challengeId}`, { scroll: false });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function continueDailyMission() {
-    const nextMission = missionSteps.find((step) => !todayHistory?.completedChallenges.includes(step.id));
-    selectChallenge(nextMission?.id ?? "gospel");
+    try {
+      if (!progress || !todayHistory) {
+        setHomeNotice("Estamos carregando sua missão. Tente novamente em instantes.");
+        return;
+      }
+
+      const nextMission = getFirstPendingMission();
+      if (!nextMission) {
+        setHomeNotice("Missão de hoje concluída.");
+        return;
+      }
+
+      if (nextMission !== "gospel" && !journey?.mission) {
+        openMission("gospel");
+        return;
+      }
+
+      openMission(nextMission);
+    } catch (error) {
+      console.info("[Missão da Fé] Falha ao continuar missão; voltando para a Home.", error);
+      setSelectedChallenge(null);
+      setHomeNotice("Não foi possível abrir a missão agora. Tente novamente em instantes.");
+      router.push("/");
+    }
   }
 
   function goToNextMission(currentChallenge: ChallengeId) {
     const nextMission = getNextMission(currentChallenge);
-    if (nextMission) setSelectedChallenge(nextMission);
+    if (nextMission) openMission(nextMission);
     else goHome();
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -312,6 +375,11 @@ export default function Home() {
               >
                 Continuar Missão
               </button>
+              {homeNotice ? (
+                <p className="mt-3 rounded-2xl bg-parchment px-4 py-3 text-sm font-black text-navy">
+                  {homeNotice}
+                </p>
+              ) : null}
             </section>
 
             <section className="rounded-[1.75rem] bg-navy p-4 text-white shadow-soft">
@@ -503,6 +571,15 @@ export default function Home() {
           </section>
         ) : null}
 
+        {selectedChallenge === "gospel" && !journey && !isJourneyLoading ? (
+          <section className="rounded-[1.75rem] bg-white p-6 text-center shadow-card">
+            <p className="font-black text-navy">Não foi possível carregar a leitura agora.</p>
+            <button onClick={goHome} className="mt-4 rounded-2xl bg-navy px-5 py-3 font-black text-white">
+              Voltar para início
+            </button>
+          </section>
+        ) : null}
+
         {selectedChallenge === "quiz" && !journey ? (
           <section className="rounded-[1.75rem] bg-white p-6 text-center shadow-card">
             <p className="font-black text-navy">Carregando quiz da Jornada da Fé...</p>
@@ -522,6 +599,15 @@ export default function Home() {
           />
         ) : null}
 
+        {selectedChallenge === "quiz" && journey && !journeyQuizData ? (
+          <section className="rounded-[1.75rem] bg-white p-6 text-center shadow-card">
+            <p className="font-black text-navy">Quiz indisponível para esta missão.</p>
+            <button onClick={goHome} className="mt-4 rounded-2xl bg-navy px-5 py-3 font-black text-white">
+              Voltar para início
+            </button>
+          </section>
+        ) : null}
+
         {selectedChallenge === "word" && !journey ? (
           <section className="rounded-[1.75rem] bg-white p-6 text-center shadow-card">
             <p className="font-black text-navy">Carregando Palavra da Fé da Jornada...</p>
@@ -539,6 +625,15 @@ export default function Home() {
             nextMissionLabel={getNextMissionLabel("word")}
             onBack={goHome}
           />
+        ) : null}
+
+        {selectedChallenge === "word" && journey && !journeyWordData ? (
+          <section className="rounded-[1.75rem] bg-white p-6 text-center shadow-card">
+            <p className="font-black text-navy">Palavra da Fé indisponível para esta missão.</p>
+            <button onClick={goHome} className="mt-4 rounded-2xl bg-navy px-5 py-3 font-black text-white">
+              Voltar para início
+            </button>
+          </section>
         ) : null}
       </div>
 

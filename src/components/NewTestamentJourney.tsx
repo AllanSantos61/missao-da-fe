@@ -83,6 +83,7 @@ export function NewTestamentJourney({
     ? bibleText.reading.translation.replace(/^almeida$/i, "Almeida")
     : "Almeida";
   const fallbackParagraphs = useMemo(() => getReadingParagraphs(bibleText.reading?.text), [bibleText.reading?.text]);
+  const readingVerses = Array.isArray(bibleText.reading?.verses) ? bibleText.reading.verses : [];
   const canComplete = isCompleted || readingProgress >= 95;
 
   const updateReadingProgress = useCallback(() => {
@@ -284,9 +285,9 @@ export function NewTestamentJourney({
               onScroll={updateReadingProgress}
               className="max-h-[68vh] overflow-y-auto px-5 pb-6 sm:px-7"
             >
-              {bibleText.reading?.verses.length ? (
+              {readingVerses.length ? (
                 <div className="mx-auto max-w-2xl space-y-1">
-                  {bibleText.reading.verses.map((verse) => {
+                  {readingVerses.map((verse) => {
                     const key = `${verse.chapter}-${verse.verse}`;
                     const verseText = `${verse.chapter}:${verse.verse} ${verse.text.trim()}`;
                     const selected = selectedVerseKey === key;

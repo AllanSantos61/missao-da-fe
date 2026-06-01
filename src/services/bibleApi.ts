@@ -88,7 +88,16 @@ function readCache(reference: string): BibleApiReading | null {
 
   try {
     const cached = window.localStorage.getItem(getCacheKey(reference));
-    return cached ? (JSON.parse(cached) as BibleApiReading) : null;
+    if (!cached) return null;
+    const reading = JSON.parse(cached) as Partial<BibleApiReading>;
+    return {
+      reference: reading.reference ?? reference,
+      text: reading.text ?? "",
+      translation: reading.translation ?? TRANSLATION,
+      verses: Array.isArray(reading.verses) ? reading.verses : [],
+      source: "cache",
+      errorMessage: reading.errorMessage
+    };
   } catch {
     return null;
   }
