@@ -83,6 +83,7 @@ export type PublicResult = {
   playerName: string;
   resultDate: string;
   journeyDay: number;
+  totalXP: number;
   readingCompleted: boolean;
   quizScore: number;
   quizTotal: number;

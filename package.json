@@ -10,7 +10,8 @@
     "db:create-journey": "node -e \"console.log('Abra scripts/createJourneyTables.sql no SQL Editor do Supabase e execute o arquivo.')\"",
     "seed:journey": "tsx scripts/seedJourneyContent.ts",
     "seed:quiz": "tsx scripts/seedJourneyQuiz.ts",
-    "seed:content": "tsx scripts/seedJourneyContent.ts"
+    "seed:content": "tsx scripts/seedJourneyContent.ts",
+    "test:share": "tsx scripts/testShareMessages.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.106.2",

@@ -35,26 +35,43 @@ export function ShareResultButton({ progress, todayHistory }: ShareResultButtonP
     readingDone: Boolean(todayHistory.results.gospel),
     quizScore: todayHistory.results.quiz?.quiz?.score ?? 0,
     quizTotal: todayHistory.results.quiz?.quiz?.total ?? 3,
+    wordScore: todayHistory.results.word?.word?.attempts ?? 0,
     wordAttempts: todayHistory.results.word?.word?.attempts ?? 0,
     wordSolved: Boolean(todayHistory.results.word?.word?.solved),
     streak: progress.currentStreak,
     xpToday: todayHistory.xpEarned,
-    day: fallbackResult.journeyDay,
+    totalXP: progress.totalXP,
+    currentDay: fallbackResult.journeyDay,
     url,
-    publicResultUrl
+    resultUrl: publicResultUrl || url,
+    publicResultUrl,
+    variant: "complete"
   });
+
+  async function handleShare(event: React.MouseEvent<HTMLAnchorElement>) {
+    void trackEvent({
+      eventName: "whatsapp_shared",
+      userId: progress.anonymousUserId,
+      playerName: progress.playerName,
+      metadata: { xpToday: todayHistory.xpEarned, publicResultUrl }
+    });
+
+    if (!navigator.share || !publicResultUrl) return;
+
+    event.preventDefault();
+    await navigator.share({
+      title: "Missão da Fé",
+      text: "Acabei de concluir minha Missão da Fé.",
+      url: publicResultUrl
+    }).catch(() => {
+      window.open(shareUrl, "_blank", "noopener,noreferrer");
+    });
+  }
 
   return (
     <a
       href={shareUrl}
-      onClick={() =>
-        void trackEvent({
-          eventName: "whatsapp_shared",
-          userId: progress.anonymousUserId,
-          playerName: progress.playerName,
-          metadata: { xpToday: todayHistory.xpEarned, publicResultUrl }
-        })
-      }
+      onClick={handleShare}
       target="_blank"
       rel="noreferrer"
       className="inline-flex w-full items-center justify-center rounded-2xl bg-faithGreen px-6 py-4 font-black text-white shadow-card transition hover:-translate-y-0.5 hover:bg-navy"

@@ -8,6 +8,12 @@ function createSlug(userId: string, date: string) {
   return `${userId.slice(0, 8)}-${date.replaceAll("-", "")}`;
 }
 
+function safeJourneyDay(value: unknown) {
+  const numberValue = Number(value);
+  if (!Number.isFinite(numberValue) || numberValue < 1) return 1;
+  return Math.min(365, Math.round(numberValue));
+}
+
 function readLocalResults(): Record<string, PublicResult> {
   if (typeof window === "undefined") return {};
   try {
@@ -31,7 +37,8 @@ export function buildPublicResult(progress: UserProgress, todayHistory: DayHisto
     userId: progress.anonymousUserId,
     playerName: progress.playerName || "Peregrino",
     resultDate: date,
-    journeyDay: Number.isFinite(journeyScore) ? journeyScore : 1,
+    journeyDay: safeJourneyDay(journeyScore),
+    totalXP: progress.totalXP,
     readingCompleted: Boolean(todayHistory.results.gospel),
     quizScore: todayHistory.results.quiz?.quiz?.score ?? 0,
     quizTotal: todayHistory.results.quiz?.quiz?.total ?? 3,
@@ -86,6 +93,7 @@ export async function getPublicResult(slug: string): Promise<PublicResult | null
         word_attempts: number;
         daily_xp: number;
         streak: number;
+        total_xp?: number | null;
         share_slug: string;
       };
 
@@ -93,7 +101,8 @@ export async function getPublicResult(slug: string): Promise<PublicResult | null
         userId: row.user_id,
         playerName: row.player_name,
         resultDate: row.result_date,
-        journeyDay: row.journey_day,
+        journeyDay: safeJourneyDay(row.journey_day),
+        totalXP: row.total_xp ?? row.daily_xp ?? 0,
         readingCompleted: row.reading_completed,
         quizScore: row.quiz_score,
         quizTotal: 3,
