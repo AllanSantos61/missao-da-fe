@@ -7,6 +7,7 @@ import type {
   JourneyCalendarDay,
   JourneyDayStatus
 } from "@/types/bibleJourney";
+import type { DailyChallengeResult } from "@/types/dailyProgress";
 import { addDays, getDaysElapsedInclusive } from "@/utils/bibleJourneyDate";
 import { getTodayKey } from "@/utils/dateUtils";
 
@@ -22,6 +23,9 @@ type CompletedJourneyDay = {
   status: JourneyDayStatus;
   completedDate: string;
   xpEarned: number;
+  wordAttemptsHistory?: JourneyCalendarDay["wordAttemptsHistory"];
+  wordResult?: JourneyCalendarDay["wordResult"];
+  wordAttempts?: number;
 };
 
 type LocalJourneyState = {
@@ -166,6 +170,9 @@ function buildCalendar(progress: BibleProgress, completedRows: CompletedJourneyD
       readingCompleted,
       quizCompleted,
       wordCompleted,
+      wordAttemptsHistory: completed?.wordAttemptsHistory ?? [],
+      wordResult: completed?.wordResult ?? null,
+      wordAttempts: completed?.wordAttempts ?? 0,
       xpEarned: completed?.xpEarned ?? 0,
       completedDate: completed?.completedDate ?? null
     };
@@ -217,7 +224,8 @@ export async function completeJourneyPart(
   playerName: string,
   dayNumber: number,
   part: "reading" | "quiz" | "word",
-  xpOverride?: number
+  xpOverride?: number,
+  result?: DailyChallengeResult
 ): Promise<CurrentReadingState> {
   const playerKey = getPlayerKey(playerName);
   const state = readState();
@@ -269,7 +277,15 @@ export async function completeJourneyPart(
       wordCompleted,
       status: isDayCompleted ? "completed" : dayNumber === progress.availableJourneyDay ? "available" : "pending",
       completedDate: isDayCompleted ? today : existing?.completedDate ?? "",
-      xpEarned: Number(existing?.xpEarned ?? 0) + xpEarned
+      xpEarned: Number(existing?.xpEarned ?? 0) + xpEarned,
+      wordAttemptsHistory: part === "word" ? result?.word?.attemptsHistory ?? existing?.wordAttemptsHistory ?? [] : existing?.wordAttemptsHistory,
+      wordResult: part === "word"
+        ? {
+            solved: Boolean(result?.word?.solved),
+            correctWord: result?.word?.correctWord
+          }
+        : existing?.wordResult,
+      wordAttempts: part === "word" ? result?.word?.attempts ?? existing?.wordAttempts ?? 0 : existing?.wordAttempts
     }
   ];
   saveState(state);

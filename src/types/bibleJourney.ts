@@ -23,6 +23,15 @@ export type JourneyCalendarDay = {
   readingCompleted: boolean;
   quizCompleted: boolean;
   wordCompleted: boolean;
+  wordAttemptsHistory?: Array<{
+    guess: string;
+    result: Array<"correct" | "present" | "absent" | "empty">;
+  }>;
+  wordResult?: {
+    solved: boolean;
+    correctWord?: string;
+  } | null;
+  wordAttempts?: number;
   xpEarned: number;
   completedDate?: string | null;
 };

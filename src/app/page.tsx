@@ -320,15 +320,21 @@ export default function Home() {
         id: "word" as const,
         completedAt: selectedJourneyDay?.completedDate ?? new Date().toISOString(),
         xpEarned: journey?.mission?.wordXp ?? dailyChallengeContent.word.xp,
-        scoreLabel: "Concluído",
-        word: { solved: true, attempts: 0, guesses: [] }
+        scoreLabel: selectedJourneyDay?.wordAttempts ? `${selectedJourneyDay.wordAttempts}/6` : "Concluído",
+        word: {
+          solved: Boolean(selectedJourneyDay?.wordResult?.solved ?? true),
+          attempts: selectedJourneyDay?.wordAttempts ?? 0,
+          guesses: selectedJourneyDay?.wordAttemptsHistory?.map((item) => item.guess) ?? [],
+          attemptsHistory: selectedJourneyDay?.wordAttemptsHistory ?? [],
+          correctWord: selectedJourneyDay?.wordResult?.correctWord ?? journey?.mission?.normalizedFaithWord
+        }
       }
     : undefined;
 
   function handleJourneyPartComplete(part: "quiz" | "word", result: DailyChallengeResult) {
     handleComplete(result);
     if (journey) {
-      void completeJourneyPart(journey.selectedDay, part, result.xpEarned);
+      void completeJourneyPart(journey.selectedDay, part, result.xpEarned, result);
       const allDone =
         Boolean(selectedJourneyDay?.readingCompleted) &&
         (part === "quiz" || Boolean(selectedJourneyDay?.quizCompleted)) &&

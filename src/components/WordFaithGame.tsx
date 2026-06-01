@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { DailyChallengeData } from "@/types/dailyChallenge";
-import type { DailyChallengeResult, DayHistory, UserProgress } from "@/types/dailyProgress";
+import type { DailyChallengeResult, DayHistory, UserProgress, WordAttemptHistoryItem } from "@/types/dailyProgress";
 import { ChallengeActionBar } from "@/components/ChallengeActionBar";
 import { ChallengeStatusStrip } from "@/components/ChallengeStatusStrip";
 import { getWordLetterStatuses, normalizeWord } from "@/utils/wordUtils";
@@ -57,6 +57,15 @@ export function WordFaithGame({
   const [guesses, setGuesses] = useState<string[]>(savedResult?.word?.guesses ?? []);
   const [error, setError] = useState("");
   const completed = Boolean(savedResult);
+  const savedAttemptsHistory = useMemo(
+    () => savedResult?.word?.attemptsHistory ?? [],
+    [savedResult?.word?.attemptsHistory]
+  );
+  const reviewGuesses = savedAttemptsHistory.length
+    ? savedAttemptsHistory.map((item) => normalizeWord(item.guess).slice(0, 5))
+    : guesses;
+  const displayGuesses = completed ? reviewGuesses : guesses;
+  const hasDetailedHistory = !completed || displayGuesses.length > 0;
   const solved = completed ? Boolean(savedResult?.word?.solved) : guesses.includes(secret);
   const attemptsEnded = completed || solved || guesses.length >= 6;
 
@@ -64,8 +73,10 @@ export function WordFaithGame({
     const statuses: Record<string, keyof typeof statusClasses> = {};
     const priority = { correct: 3, present: 2, absent: 1, empty: 0 };
 
-    guesses.forEach((guess) => {
-      getWordLetterStatuses(guess, secret).forEach((status, index) => {
+    displayGuesses.forEach((guess, guessIndex) => {
+      const storedStatuses = savedAttemptsHistory[guessIndex]?.result;
+      const statusesForGuess = storedStatuses?.length ? storedStatuses : getWordLetterStatuses(guess, secret);
+      statusesForGuess.forEach((status, index) => {
         const letter = guess[index];
         const current = statuses[letter] ?? "empty";
         if (priority[status] > priority[current]) {
@@ -75,7 +86,14 @@ export function WordFaithGame({
     });
 
     return statuses;
-  }, [guesses, secret]);
+  }, [displayGuesses, savedAttemptsHistory, secret]);
+
+  function buildAttemptsHistory(nextGuesses: string[]): WordAttemptHistoryItem[] {
+    return nextGuesses.map((guess) => ({
+      guess,
+      result: getWordLetterStatuses(guess, secret)
+    }));
+  }
 
   function finish(nextGuesses: string[], didSolve: boolean) {
     const result: DailyChallengeResult = {
@@ -86,7 +104,9 @@ export function WordFaithGame({
       word: {
         solved: didSolve,
         attempts: nextGuesses.length,
-        guesses: nextGuesses
+        guesses: nextGuesses,
+        attemptsHistory: buildAttemptsHistory(nextGuesses),
+        correctWord: secret
       }
     };
     onComplete(result);
@@ -175,9 +195,10 @@ export function WordFaithGame({
 
       <div className="mx-auto mt-4 space-y-1.5 sm:mt-5 sm:space-y-2">
         {Array.from({ length: 6 }).map((_, rowIndex) => {
-          const guess = guesses[rowIndex] ?? "";
+          const guess = displayGuesses[rowIndex] ?? "";
           const rowLetters = rowIndex === guesses.length && !completed ? input : guess;
-          const statuses = guess ? getWordLetterStatuses(guess, secret) : [];
+          const storedStatuses = savedAttemptsHistory[rowIndex]?.result;
+          const statuses = guess ? (storedStatuses?.length ? storedStatuses : getWordLetterStatuses(guess, secret)) : [];
 
           return (
             <div
@@ -247,8 +268,13 @@ export function WordFaithGame({
 
       {completed ? (
         <div className="mt-4 space-y-3 sm:mt-5">
+          {!hasDetailedHistory ? (
+            <div className="rounded-2xl bg-gold/15 px-4 py-3 text-center text-sm font-black text-navy">
+              Resultado anterior não possui histórico detalhado.
+            </div>
+          ) : null}
           <div className="rounded-2xl bg-faithGreen/12 px-4 py-3 text-center font-black text-faithGreen sm:py-4">
-            Resultado salvo: {savedResult?.scoreLabel} · palavra {secret}
+            Resultado salvo: {savedResult?.scoreLabel} · palavra {savedResult?.word?.correctWord ?? secret}
           </div>
           {wordMode === "standalone" ? (
             <div className="rounded-2xl bg-white p-4 text-center shadow-sm">

@@ -222,6 +222,9 @@ alter table public.user_journey_day_status add column if not exists status text 
 alter table public.user_journey_day_status add column if not exists reading_completed boolean default false;
 alter table public.user_journey_day_status add column if not exists quiz_completed boolean default false;
 alter table public.user_journey_day_status add column if not exists word_completed boolean default false;
+alter table public.user_journey_day_status add column if not exists word_attempts_history jsonb default '[]'::jsonb;
+alter table public.user_journey_day_status add column if not exists word_result jsonb;
+alter table public.user_journey_day_status add column if not exists word_attempts integer default 0;
 alter table public.user_journey_day_status add column if not exists total_xp_earned integer default 0;
 alter table public.user_journey_day_status add column if not exists completed_at timestamptz;
 alter table public.user_journey_day_status add column if not exists completed_date date;

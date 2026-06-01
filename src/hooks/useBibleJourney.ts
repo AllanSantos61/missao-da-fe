@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { completeJourneyDay, completeJourneyPart, getJourneyDay } from "@/services/bibleJourneyService";
 import type { CurrentReadingState } from "@/types/bibleJourney";
+import type { DailyChallengeResult } from "@/types/dailyProgress";
 
 export function useBibleJourney(userId: string, playerName: string) {
   const [journey, setJourney] = useState<CurrentReadingState | null>(null);
@@ -35,9 +36,9 @@ export function useBibleJourney(userId: string, playerName: string) {
     reloadJourney: loadJourney,
     selectJourneyDay: loadJourney,
     completeReading,
-    completeJourneyPart: async (dayNumber: number, part: "reading" | "quiz" | "word", xp?: number) => {
+    completeJourneyPart: async (dayNumber: number, part: "reading" | "quiz" | "word", xp?: number, result?: DailyChallengeResult) => {
       setIsCompleting(true);
-      const state = await completeJourneyPart(userId, playerName, dayNumber, part, xp);
+      const state = await completeJourneyPart(userId, playerName, dayNumber, part, xp, result);
       setJourney(state);
       setIsCompleting(false);
       return state;

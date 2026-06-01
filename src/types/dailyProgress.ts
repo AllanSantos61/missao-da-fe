@@ -10,6 +10,14 @@ export type WordResult = {
   solved: boolean;
   attempts: number;
   guesses: string[];
+  attemptsHistory?: WordAttemptHistoryItem[];
+  correctWord?: string;
+  dayNumber?: number;
+};
+
+export type WordAttemptHistoryItem = {
+  guess: string;
+  result: Array<"correct" | "present" | "absent" | "empty">;
 };
 
 export type GospelResult = {

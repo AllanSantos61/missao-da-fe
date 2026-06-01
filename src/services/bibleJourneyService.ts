@@ -8,6 +8,7 @@ import type {
   JourneyCalendarDay,
   JourneyDayStatus
 } from "@/types/bibleJourney";
+import type { DailyChallengeResult } from "@/types/dailyProgress";
 import { addDays, getDaysElapsedInclusive } from "@/utils/bibleJourneyDate";
 import { getTodayKey } from "@/utils/dateUtils";
 
@@ -57,6 +58,9 @@ type JourneyDayRow = {
   completed_at: string | null;
   completed_date: string | null;
   total_xp_earned: number | null;
+  word_attempts_history?: JourneyCalendarDay["wordAttemptsHistory"] | null;
+  word_result?: JourneyCalendarDay["wordResult"] | null;
+  word_attempts?: number | null;
 };
 
 function getPlayerName(playerName: string) {
@@ -142,6 +146,9 @@ function buildCalendar(progress: BibleProgress, completedRows: JourneyDayRow[]):
       readingCompleted,
       quizCompleted,
       wordCompleted,
+      wordAttemptsHistory: Array.isArray(completed?.word_attempts_history) ? completed.word_attempts_history : [],
+      wordResult: completed?.word_result ?? null,
+      wordAttempts: Number(completed?.word_attempts ?? 0),
       xpEarned: completed?.total_xp_earned ?? 0,
       completedDate: completed?.completed_date ?? null
     };
@@ -356,7 +363,8 @@ export async function completeJourneyPart(
   playerNameInput: string,
   dayNumber: number,
   part: "reading" | "quiz" | "word",
-  xpOverride?: number
+  xpOverride?: number,
+  result?: DailyChallengeResult
 ): Promise<CurrentReadingState> {
   const playerName = getPlayerName(playerNameInput);
   const userId = getUserId(userIdInput);
@@ -434,12 +442,42 @@ export async function completeJourneyPart(
       completed_date: isDayCompleted ? today : currentStatus?.completed_date,
       updated_at: new Date().toISOString()
     };
+    const wordPayload = part === "word" && result?.word
+      ? {
+          word_attempts_history: result.word.attemptsHistory ?? result.word.guesses.map((guess) => ({
+            guess,
+            result: []
+          })),
+          word_result: {
+            solved: result.word.solved,
+            correctWord: result.word.correctWord ?? state.mission?.normalizedFaithWord
+          },
+          word_attempts: result.word.attempts
+        }
+      : {};
+    const statusPayloadWithWord: Record<string, unknown> = {
+      ...statusPayload,
+      ...wordPayload
+    };
 
     const dayWrite = currentStatus?.id
-      ? await supabaseClient.from("user_journey_day_status").update(statusPayload).eq("id", currentStatus.id)
-      : await supabaseClient.from("user_journey_day_status").insert(statusPayload);
+      ? await supabaseClient.from("user_journey_day_status").update(statusPayloadWithWord).eq("id", currentStatus.id)
+      : await supabaseClient.from("user_journey_day_status").insert(statusPayloadWithWord);
 
-    if (dayWrite.error) throw dayWrite.error;
+    if (dayWrite.error) {
+      const missingWordColumns =
+        dayWrite.error.code === "42703" ||
+        dayWrite.error.message?.includes("word_attempts") ||
+        dayWrite.error.message?.includes("word_result");
+
+      if (!missingWordColumns) throw dayWrite.error;
+
+      const fallbackWrite = currentStatus?.id
+        ? await supabaseClient.from("user_journey_day_status").update(statusPayload).eq("id", currentStatus.id)
+        : await supabaseClient.from("user_journey_day_status").insert(statusPayload);
+
+      if (fallbackWrite.error) throw fallbackWrite.error;
+    }
     logJourney("Saved user_journey_day_status", {
       playerName,
       dayNumber,
@@ -491,7 +529,7 @@ export async function completeJourneyPart(
     return buildState(userId, playerName, nextDay);
   } catch (error) {
     logJourneyError("Journey completion failed; using localStorage fallback", error);
-    return localBibleJourneyService.completeJourneyPart(userId, dayNumber, part, xpOverride);
+    return localBibleJourneyService.completeJourneyPart(userId, dayNumber, part, xpOverride, result);
   }
 }
 
