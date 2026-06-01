@@ -55,15 +55,6 @@ export function JourneyCalendar365({ days, selectedDay, onSelectDay, onMilestone
         <span className="rounded-full bg-parchment px-3 py-1 text-xs font-black text-navy">{days.length} dias</span>
       </div>
 
-      {milestone ? (
-        <div className="mt-4 rounded-2xl border border-gold/35 bg-gold/12 p-4">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-gold">Dia {activeMilestone}</p>
-          <h4 className="mt-1 font-black text-navy">{milestone.title}</h4>
-          <p className="mt-1 text-sm leading-6 text-ink/70">{milestone.message}</p>
-          <p className="mt-2 text-xs font-bold text-navy/60">XP bônus futuro: em breve</p>
-        </div>
-      ) : null}
-
       <div className="mt-4 grid grid-cols-[repeat(15,minmax(0,1fr))] gap-1 sm:grid-cols-[repeat(25,minmax(0,1fr))]">
         {days.map((day) => {
           const isMilestone = Boolean(milestones[day.dayNumber]);
@@ -93,6 +84,25 @@ export function JourneyCalendar365({ days, selectedDay, onSelectDay, onMilestone
         <span className="flex items-center gap-2"><i className="h-3 w-3 rounded bg-stone/35" /> Futuro</span>
         <span className="flex items-center gap-2"><i className="h-3 w-3 rounded border-2 border-gold bg-white" /> Marco</span>
       </div>
+
+      {milestone ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy/45 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-[2rem] bg-white p-6 text-center shadow-soft">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-gold">Dia {activeMilestone}</p>
+            <h4 className="mt-2 text-2xl font-black text-navy">{milestone.title}</h4>
+            <p className="mt-3 text-sm font-bold leading-6 text-ink/70">{milestone.message}</p>
+            <p className="mt-3 rounded-2xl bg-gold/12 px-4 py-3 text-xs font-black text-navy">
+              XP bônus futuro: em breve
+            </p>
+            <button
+              onClick={() => setActiveMilestone(null)}
+              className="mt-5 w-full rounded-2xl bg-navy px-4 py-3 font-black text-white"
+            >
+              Continuar jornada
+            </button>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
