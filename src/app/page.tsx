@@ -114,9 +114,10 @@ export default function Home() {
   }, []);
 
   function getStepCompleted(challengeId: ChallengeId) {
-    if (challengeId === "gospel") return todayMissionState.readingCompleted;
-    if (challengeId === "quiz") return todayMissionState.quizCompleted;
-    return todayMissionState.wordCompleted;
+    const status = todayMissionState.getMissionStatus(todayMissionState.currentMissionDay);
+    if (challengeId === "gospel") return status.readingCompleted;
+    if (challengeId === "quiz") return status.quizCompleted;
+    return status.wordCompleted;
   }
   function handleComplete(result: DailyChallengeResult) {
     completeChallenge(result.id, result);
@@ -186,18 +187,6 @@ export default function Home() {
       return;
     }
 
-    if (challengeId === "quiz" && !todayMissionState.readingCompleted) {
-      setHomeNotice("Conclua a leitura para liberar o Quiz.");
-      void openMission("gospel");
-      return;
-    }
-
-    if (challengeId === "word" && mode === "mission" && !todayMissionState.quizCompleted) {
-      setHomeNotice("Conclua o Quiz para liberar a Palavra da Fé.");
-      void openMission(todayMissionState.readingCompleted ? "quiz" : "gospel");
-      return;
-    }
-
     setWordMode(mode);
     setHomeNotice("");
     setSelectedChallenge(challengeId);
@@ -218,8 +207,9 @@ export default function Home() {
   }
 
   function getNextMission(currentChallenge: ChallengeId) {
-    if (currentChallenge === "gospel" && !todayMissionState.quizCompleted) return "quiz";
-    if (currentChallenge === "quiz" && !todayMissionState.wordCompleted) return "word";
+    const status = todayMissionState.getMissionStatus(todayMissionState.currentMissionDay);
+    if (currentChallenge === "gospel" && !status.quizCompleted) return "quiz";
+    if (currentChallenge === "quiz" && !status.wordCompleted) return "word";
     return null;
   }
 
@@ -286,6 +276,7 @@ export default function Home() {
 
   const selectedResult = selectedChallenge ? todayHistory.results[selectedChallenge] : undefined;
   const selectedJourneyDay = journey?.calendar.find((day) => day.dayNumber === journey.selectedDay);
+  const selectedMissionStatus = todayMissionState.getMissionStatus(journey?.selectedDay ?? todayMissionState.currentMissionDay);
   const currentJourneyDay = journey?.progress.currentJourneyDay ?? 1;
   const avatar = getJourneyAvatar(currentJourneyDay);
   const journeyQuizData = journey?.mission
@@ -315,19 +306,19 @@ export default function Home() {
         xp: Math.max(5, Math.round(journeyWordData.xp * 0.35))
       }
     : null;
-  const journeyQuizResult = selectedJourneyDay?.quizCompleted
+  const journeyQuizResult = selectedMissionStatus.quizCompleted
     ? {
         id: "quiz" as const,
-        completedAt: selectedJourneyDay.completedDate ?? new Date().toISOString(),
+        completedAt: selectedJourneyDay?.completedDate ?? new Date().toISOString(),
         xpEarned: journey?.mission?.quizXp ?? dailyChallengeContent.quiz.xp,
         scoreLabel: "Concluído",
         quiz: { score: 3, total: 3, answers: {} }
       }
     : undefined;
-  const journeyWordResult = selectedJourneyDay?.wordCompleted
+  const journeyWordResult = selectedMissionStatus.wordCompleted
     ? {
         id: "word" as const,
-        completedAt: selectedJourneyDay.completedDate ?? new Date().toISOString(),
+        completedAt: selectedJourneyDay?.completedDate ?? new Date().toISOString(),
         xpEarned: journey?.mission?.wordXp ?? dailyChallengeContent.word.xp,
         scoreLabel: "Concluído",
         word: { solved: true, attempts: 0, guesses: [] }
@@ -506,13 +497,12 @@ export default function Home() {
               <div className="mt-4 grid gap-2">
                 {missionSteps.map((step) => {
                   const completed = getStepCompleted(step.id);
-                  const isAvailable = completed || step.id === todayMissionState.nextPendingStep;
+                  const isNextStep = step.id === todayMissionState.nextPendingStep;
                   return (
                     <button
                       key={step.id}
                       onClick={() => selectChallenge(step.id)}
-                      disabled={!isAvailable}
-                      className="flex items-center justify-between rounded-2xl bg-parchment px-4 py-3 text-left transition enabled:hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-65"
+                      className="flex items-center justify-between rounded-2xl bg-parchment px-4 py-3 text-left transition hover:-translate-y-0.5"
                     >
                       <span className="flex items-center gap-3 font-black text-navy">
                         <span className={`flex h-7 w-7 items-center justify-center rounded-full ${completed ? "bg-faithGreen text-white" : "bg-white text-navy"}`}>
@@ -520,8 +510,8 @@ export default function Home() {
                         </span>
                         {step.label}
                       </span>
-                      <span className={`rounded-full px-3 py-1 text-xs font-black ${completed ? "bg-faithGreen/12 text-faithGreen" : isAvailable ? "bg-gold/15 text-navy" : "bg-stone/20 text-ink/55"}`}>
-                        {completed ? "Concluído" : isAvailable ? "Disponível" : "Bloqueada"}
+                      <span className={`rounded-full px-3 py-1 text-xs font-black ${completed ? "bg-faithGreen/12 text-faithGreen" : isNextStep ? "bg-gold/15 text-navy" : "bg-stone/20 text-ink/55"}`}>
+                        {completed ? "Concluído" : isNextStep ? "Disponível" : "Bloqueada"}
                       </span>
                     </button>
                   );
@@ -556,10 +546,9 @@ export default function Home() {
                     </div>
                     <button
                       onClick={() => selectChallenge(step.id)}
-                      disabled={!completed && status === "Bloqueada"}
-                      className="mt-4 w-full rounded-2xl bg-navy px-4 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:bg-stone"
+                      className="mt-4 w-full rounded-2xl bg-navy px-4 py-3 text-sm font-black text-white"
                     >
-                      {completed ? "Rever" : status === "Bloqueada" ? "Bloqueada" : "Começar"}
+                      {completed ? "Rever" : status === "Bloqueada" ? "Abrir etapa" : "Começar"}
                     </button>
                   </article>
                 );

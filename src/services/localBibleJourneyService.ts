@@ -151,6 +151,9 @@ function buildCalendar(progress: BibleProgress, completedRows: CompletedJourneyD
       completed?.quizCompleted &&
       completed?.wordCompleted
     );
+    const wordCompleted = Boolean(completed?.wordCompleted);
+    const quizCompleted = Boolean(completed?.quizCompleted || wordCompleted);
+    const readingCompleted = Boolean(completed?.readingCompleted || quizCompleted || wordCompleted);
     return {
       dayNumber,
       status: isFullyCompleted
@@ -160,9 +163,9 @@ function buildCalendar(progress: BibleProgress, completedRows: CompletedJourneyD
           : dayNumber === progress.currentJourneyDay
             ? "available"
             : "pending",
-      readingCompleted: Boolean(completed?.readingCompleted),
-      quizCompleted: Boolean(completed?.quizCompleted),
-      wordCompleted: Boolean(completed?.wordCompleted),
+      readingCompleted,
+      quizCompleted,
+      wordCompleted,
       xpEarned: completed?.xpEarned ?? 0,
       completedDate: completed?.completedDate ?? null
     };
