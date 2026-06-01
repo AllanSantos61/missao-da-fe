@@ -8,11 +8,12 @@ export type BibleApiReading = {
   reference: string;
   text: string;
   translation: string;
+  verses: BibleApiVerse[];
   source: "api" | "cache" | "fallback";
   errorMessage?: string;
 };
 
-type BibleApiVerse = {
+export type BibleApiVerse = {
   book_name: string;
   chapter: number;
   verse: number;
@@ -127,16 +128,31 @@ function buildApiReferenceFromText(reference: string) {
   return `${getApiBookName(match[1])} ${match[2].replace(/\s+/g, "")}`;
 }
 
-function extractText(data: BibleApiResponse, reading?: BibleReading) {
-  if (reading?.verseStart && data.verses?.length) {
-    const verses = data.verses.filter((verse) => {
-      const sameChapter = verse.chapter === reading.chapterStart;
-      const afterStart = verse.verse >= Number(reading.verseStart);
-      const beforeEnd = reading.verseEnd ? verse.verse <= reading.verseEnd : true;
-      return sameChapter && afterStart && beforeEnd;
-    });
+function isVerseInsideReading(verse: BibleApiVerse, reading: BibleReading) {
+  const chapterEnd = reading.chapterEnd ?? reading.chapterStart;
+  const afterStartChapter = verse.chapter > reading.chapterStart;
+  const sameStartChapter = verse.chapter === reading.chapterStart;
+  const afterStartVerse = !reading.verseStart || verse.verse >= reading.verseStart;
+  const beforeEndChapter = verse.chapter < chapterEnd;
+  const sameEndChapter = verse.chapter === chapterEnd;
+  const beforeEndVerse = !reading.verseEnd || verse.verse <= reading.verseEnd;
 
-    if (verses.length) return verses.map((verse) => verse.text.trim()).join(" ");
+  return (
+    (afterStartChapter || (sameStartChapter && afterStartVerse)) &&
+    (beforeEndChapter || (sameEndChapter && beforeEndVerse))
+  );
+}
+
+function extractVerses(data: BibleApiResponse, reading?: BibleReading) {
+  const verses = data.verses ?? [];
+  if (!reading || !verses.length) return verses;
+  return verses.filter((verse) => isVerseInsideReading(verse, reading));
+}
+
+function extractText(data: BibleApiResponse, reading?: BibleReading) {
+  const verses = extractVerses(data, reading);
+  if (verses.length) {
+    return verses.map((verse) => verse.text.trim()).join("\n");
   }
 
   return data.text?.trim() ?? "";
@@ -144,14 +160,15 @@ function extractText(data: BibleApiResponse, reading?: BibleReading) {
 
 function fallbackReading(reference: string, fallbackText?: string | null, error?: unknown): BibleApiReading {
   const message =
-    "Nao foi possivel carregar o texto biblico online agora. Voce pode continuar a jornada; tentaremos novamente em breve.";
+    "Não foi possível carregar o texto bíblico online agora. Tente novamente em alguns instantes.";
 
   return {
     reference,
     text:
       fallbackText?.trim() ||
-      "Texto biblico indisponivel no momento. A referencia da missao esta salva, e a leitura sera carregada pela Bible API assim que a conexao estiver disponivel.",
+      "Texto bíblico indisponível no momento. A referência da missão está salva e será carregada pela Bible API assim que a conexão estiver disponível.",
     translation: TRANSLATION,
+    verses: [],
     source: "fallback",
     errorMessage: error instanceof Error ? `${message} (${error.message})` : message
   };
@@ -171,16 +188,18 @@ export async function fetchBibleReading(readingOrReference: BibleReading | strin
   }
 
   const data = (await response.json()) as BibleApiResponse;
+  const verses = extractVerses(data, typeof readingOrReference === "string" ? undefined : readingOrReference);
   const text = extractText(data, typeof readingOrReference === "string" ? undefined : readingOrReference);
 
   if (!text) {
-    throw new Error("Bible API nao retornou texto para esta referencia.");
+    throw new Error("Bible API não retornou texto para esta referência.");
   }
 
   return {
     reference: data.reference ?? reference,
     text,
     translation: data.translation_name ?? TRANSLATION,
+    verses,
     source: "api"
   };
 }
