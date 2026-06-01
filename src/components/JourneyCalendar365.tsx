@@ -78,11 +78,11 @@ export function JourneyCalendar365({ days, selectedDay, onSelectDay, onMilestone
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-2 text-xs font-bold text-ink/65 sm:grid-cols-5">
-        <span className="flex items-center gap-2"><i className="h-3 w-3 rounded bg-faithGreen" /> Concluído</span>
-        <span className="flex items-center gap-2"><i className="h-3 w-3 rounded bg-gold" /> Pendente</span>
-        <span className="flex items-center gap-2"><i className="h-3 w-3 rounded bg-navy" /> Disponível</span>
-        <span className="flex items-center gap-2"><i className="h-3 w-3 rounded bg-stone/35" /> Futuro</span>
-        <span className="flex items-center gap-2"><i className="h-3 w-3 rounded border-2 border-gold bg-white" /> Marco</span>
+        <span className="flex items-center gap-2"><i className="h-3 w-3 rounded bg-faithGreen" /> Verde: concluído</span>
+        <span className="flex items-center gap-2"><i className="h-3 w-3 rounded bg-gold" /> Amarelo: pendente</span>
+        <span className="flex items-center gap-2"><i className="h-3 w-3 rounded bg-navy" /> Azul: disponível</span>
+        <span className="flex items-center gap-2"><i className="h-3 w-3 rounded bg-stone/35" /> Cinza: futuro</span>
+        <span className="flex items-center gap-2"><i className="h-3 w-3 rounded border-2 border-gold bg-white" /> Dourado: marco</span>
       </div>
 
       {milestone ? (

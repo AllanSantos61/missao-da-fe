@@ -27,6 +27,8 @@ const missionSteps: Array<{ id: ChallengeId; label: string; description: string 
   { id: "word", label: "Palavra", description: "Descubra a palavra cristã de 5 letras." }
 ];
 
+const missionStepOrder: ChallengeId[] = ["gospel", "quiz", "word"];
+
 const achievements = [
   { day: 7, title: "Primeira Semana" },
   { day: 30, title: "30 Dias" },
@@ -102,7 +104,47 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const completedCount = todayHistory?.completedChallenges.length ?? 0;
+  function getTodayMissionState() {
+    const journeyDay = journey?.selectedDay ?? journey?.progress.currentJourneyDay ?? 1;
+    const journeyDayStatus = journey?.calendar.find((day) => day.dayNumber === journeyDay);
+    const hasJourneyStatus = Boolean(journeyDayStatus);
+    const readingCompleted = hasJourneyStatus
+      ? Boolean(journeyDayStatus?.readingCompleted)
+      : Boolean(todayHistory?.results.gospel);
+    const quizCompleted = hasJourneyStatus
+      ? Boolean(journeyDayStatus?.quizCompleted)
+      : Boolean(todayHistory?.results.quiz);
+    const wordCompleted = hasJourneyStatus
+      ? Boolean(journeyDayStatus?.wordCompleted)
+      : Boolean(todayHistory?.results.word);
+    const completedCount = [readingCompleted, quizCompleted, wordCompleted].filter(Boolean).length;
+    const nextPendingStep =
+      missionStepOrder.find((step) => {
+        if (step === "gospel") return !readingCompleted;
+        if (step === "quiz") return !quizCompleted;
+        return !wordCompleted;
+      }) ?? null;
+    const isMissionCompleted = readingCompleted && quizCompleted && wordCompleted;
+
+    return {
+      journeyDay,
+      readingCompleted,
+      quizCompleted,
+      wordCompleted,
+      completedCount,
+      totalSteps: 3,
+      isMissionCompleted,
+      nextPendingStep,
+      canContinueToday: !isMissionCompleted && Boolean(nextPendingStep)
+    };
+  }
+
+  function getStepCompleted(challengeId: ChallengeId) {
+    const state = getTodayMissionState();
+    if (challengeId === "gospel") return state.readingCompleted;
+    if (challengeId === "quiz") return state.quizCompleted;
+    return state.wordCompleted;
+  }
   function handleComplete(result: DailyChallengeResult) {
     completeChallenge(result.id, result);
     if (progress) {
@@ -171,31 +213,9 @@ export default function Home() {
   }
 
   function getNextMission(currentChallenge: ChallengeId) {
-    const order: ChallengeId[] = ["gospel", "quiz", "word"];
-    if (!todayHistory) return null;
-    const currentIndex = order.indexOf(currentChallenge);
-    const rotatedOrder = [...order.slice(currentIndex + 1), ...order.slice(0, currentIndex + 1)];
-    return rotatedOrder.find((challengeId) => isMissionPending(challengeId)) ?? null;
-  }
-
-  function isMissionPending(challengeId: ChallengeId) {
-    if (!todayHistory) return true;
-    const calendarDay = journey?.calendar.find((day) => day.dayNumber === (journey?.selectedDay ?? journey?.progress.currentJourneyDay ?? 1));
-
-    if (challengeId === "gospel") {
-      return !Boolean(calendarDay?.readingCompleted || todayHistory.results.gospel);
-    }
-
-    if (challengeId === "quiz") {
-      return !Boolean(calendarDay?.quizCompleted || todayHistory.results.quiz);
-    }
-
-    return !Boolean(calendarDay?.wordCompleted || todayHistory.results.word);
-  }
-
-  function getFirstPendingMission() {
-    const order: ChallengeId[] = ["gospel", "quiz", "word"];
-    return order.find((challengeId) => isMissionPending(challengeId)) ?? null;
+    const currentIndex = missionStepOrder.indexOf(currentChallenge);
+    const rotatedOrder = [...missionStepOrder.slice(currentIndex + 1), ...missionStepOrder.slice(0, currentIndex + 1)];
+    return rotatedOrder.find((challengeId) => !getStepCompleted(challengeId)) ?? null;
   }
 
   function openMission(challengeId: ChallengeId) {
@@ -211,7 +231,8 @@ export default function Home() {
         return;
       }
 
-      const nextMission = getFirstPendingMission();
+      const missionState = getTodayMissionState();
+      const nextMission = missionState.nextPendingStep;
       if (!nextMission) {
         setHomeNotice("Missão de hoje concluída.");
         return;
@@ -257,6 +278,7 @@ export default function Home() {
 
   const selectedResult = selectedChallenge ? todayHistory.results[selectedChallenge] : undefined;
   const selectedJourneyDay = journey?.calendar.find((day) => day.dayNumber === journey.selectedDay);
+  const todayMissionState = getTodayMissionState();
   const currentJourneyDay = journey?.progress.currentJourneyDay ?? 1;
   const avatar = getJourneyAvatar(currentJourneyDay);
   const journeyQuizData = journey?.mission
@@ -361,20 +383,30 @@ export default function Home() {
               </div>
               <p className="mt-5 text-xs font-black uppercase tracking-[0.2em] text-gold">Jornada da Fé</p>
               <h1 className="mt-2 text-4xl font-black leading-tight text-navy">
-                Dia {currentJourneyDay} de 365
+                Dia {todayMissionState.journeyDay} de 365{todayMissionState.isMissionCompleted ? " concluído" : ""}
               </h1>
               <p className="mt-3 text-lg font-black leading-7 text-ink">
-                Leia o Novo Testamento em apenas 10 minutos por dia.
+                {todayMissionState.isMissionCompleted
+                  ? "Você completou sua missão de hoje."
+                  : "Sua missão diária está pronta."}
               </p>
               <p className="mt-2 text-sm font-semibold leading-6 text-ink/65">
-                Uma missão diária para fortalecer sua fé.
+                {todayMissionState.isMissionCompleted
+                  ? "A próxima missão será liberada amanhã."
+                  : "Leia o Novo Testamento em apenas 10 minutos por dia."}
               </p>
-              <button
-                onClick={continueDailyMission}
-                className="mt-5 w-full rounded-2xl bg-gold px-5 py-4 font-black text-navy shadow-card transition hover:-translate-y-0.5"
-              >
-                Continuar Missão
-              </button>
+              {todayMissionState.canContinueToday ? (
+                <button
+                  onClick={continueDailyMission}
+                  className="mt-5 w-full rounded-2xl bg-gold px-5 py-4 font-black text-navy shadow-card transition hover:-translate-y-0.5"
+                >
+                  Continuar Missão
+                </button>
+              ) : (
+                <div className="mt-5">
+                  <ShareResultButton progress={progress} todayHistory={todayHistory} />
+                </div>
+              )}
               {homeNotice ? (
                 <p className="mt-3 rounded-2xl bg-parchment px-4 py-3 text-sm font-black text-navy">
                   {homeNotice}
@@ -387,7 +419,7 @@ export default function Home() {
               <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
                 <div className="rounded-2xl bg-white/10 p-3">
                   <p className="text-white/60">📖 Dia atual</p>
-                  <p className="font-black">{currentJourneyDay}/365</p>
+                  <p className="font-black">{todayMissionState.journeyDay}/365</p>
                 </div>
                 <div className="rounded-2xl bg-white/10 p-3">
                   <p className="text-white/60">🔥 Sequência</p>
@@ -413,11 +445,13 @@ export default function Home() {
                   <p className="text-xs font-black uppercase tracking-[0.18em] text-gold">Missão do Dia</p>
                   <h2 className="mt-1 text-2xl font-black text-navy">Progresso do dia</h2>
                 </div>
-                <span className="rounded-full bg-parchment px-4 py-2 text-sm font-black text-navy">{completedCount}/3</span>
+                <span className="rounded-full bg-parchment px-4 py-2 text-sm font-black text-navy">
+                  {todayMissionState.completedCount}/{todayMissionState.totalSteps}
+                </span>
               </div>
               <div className="mt-4 grid gap-2">
                 {missionSteps.map((step) => {
-                  const completed = todayHistory.completedChallenges.includes(step.id);
+                  const completed = getStepCompleted(step.id);
                   return (
                     <button
                       key={step.id}
@@ -441,9 +475,8 @@ export default function Home() {
 
             <section className="grid gap-3 sm:grid-cols-3">
               {missionSteps.map((step) => {
-                const completed = todayHistory.completedChallenges.includes(step.id);
-                const nextPending = missionSteps.find((item) => !todayHistory.completedChallenges.includes(item.id))?.id;
-                const status = completed ? "Concluído" : step.id === nextPending ? "Disponível" : "Pendente";
+                const completed = getStepCompleted(step.id);
+                const status = completed ? "Concluído" : step.id === todayMissionState.nextPendingStep ? "Disponível" : "Pendente";
                 return (
                   <article
                     key={step.id}
@@ -459,12 +492,17 @@ export default function Home() {
                         </span>
                       </div>
                       <p className="mt-2 text-sm leading-6 text-ink/65">{step.description}</p>
+                      {completed ? (
+                        <p className="mt-2 text-xs font-black uppercase tracking-wide text-faithGreen">
+                          XP já recebido
+                        </p>
+                      ) : null}
                     </div>
                     <button
                       onClick={() => selectChallenge(step.id)}
                       className="mt-4 w-full rounded-2xl bg-navy px-4 py-3 text-sm font-black text-white"
                     >
-                      {completed ? "Rever" : "Continuar"}
+                      {completed ? "Rever" : "Começar"}
                     </button>
                   </article>
                 );

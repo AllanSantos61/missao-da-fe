@@ -146,9 +146,14 @@ function buildCalendar(progress: BibleProgress, completedRows: CompletedJourneyD
   return Array.from({ length: TOTAL_READINGS }, (_, index) => {
     const dayNumber = index + 1;
     const completed = byDay.get(dayNumber);
+    const isFullyCompleted = Boolean(
+      completed?.readingCompleted &&
+      completed?.quizCompleted &&
+      completed?.wordCompleted
+    );
     return {
       dayNumber,
-      status: getJourneyDayStatus(dayNumber, progress.completedDays, progress.availableJourneyDay),
+      status: isFullyCompleted ? "completed" : getJourneyDayStatus(dayNumber, progress.completedDays, progress.availableJourneyDay),
       readingCompleted: Boolean(completed?.readingCompleted),
       quizCompleted: Boolean(completed?.quizCompleted),
       wordCompleted: Boolean(completed?.wordCompleted),
