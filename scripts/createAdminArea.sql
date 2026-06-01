@@ -8,7 +8,7 @@ create table if not exists public.admin_users (
 );
 
 insert into public.admin_users (username, password_hash)
-values ('admin', '$2b$12$RHOYvlZHowbEyGHPjF9I1uiOmnEBNLVVZiSBuPJxtGLKQzsLWPHWK')
+values ('admin', '$2b$12$iBI.f3AbGflxaJa9BBC7/uAUEHI1xTeTRTDE3aqUaEQ9hS6U6XVdi')
 on conflict (username)
 do update set password_hash = excluded.password_hash;
 
