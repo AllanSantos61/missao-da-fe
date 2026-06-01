@@ -24,3 +24,25 @@ with check (false);
 
 revoke all on public.admin_users from anon;
 revoke all on public.admin_users from authenticated;
+grant select, insert, update, delete on public.admin_users to service_role;
+
+do $$
+declare
+  table_name text;
+begin
+  foreach table_name in array array[
+    'profiles',
+    'daily_results',
+    'user_journey_progress',
+    'user_journey_day_status',
+    'journey_days',
+    'journey_quiz_questions',
+    'app_events',
+    'public_results'
+  ]
+  loop
+    if to_regclass('public.' || table_name) is not null then
+      execute format('grant select, insert, update, delete on public.%I to service_role', table_name);
+    end if;
+  end loop;
+end $$;
