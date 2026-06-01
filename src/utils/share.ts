@@ -38,7 +38,7 @@ function getResultUrl(params: ShareMessageParams) {
 }
 
 function assertCleanUtf8(message: string) {
-  if (message.includes("�")) {
+  if (message.includes("\uFFFD")) {
     throw new Error("Share message contains replacement character.");
   }
   return message;
@@ -53,40 +53,24 @@ export function generateShareMessage(params: ShareMessageParams) {
     6
   );
   const streak = safeNonNegativeInteger(params.streak);
-  const xpToday = safeNonNegativeInteger(params.xpToday);
   const totalXP = safeNonNegativeInteger(params.totalXP);
   const resultUrl = getResultUrl(params);
   const completedAll = Boolean(params.readingDone) && quizScore === quizTotal && Boolean(params.wordSolved);
 
-  if (params.variant === "premium") {
+  if (completedAll || params.variant === "complete" || params.variant === "premium") {
     return assertCleanUtf8([
-      "🙏 Hoje completei mais uma etapa da minha Jornada da Fé.",
+      "🏆 Missão concluída!",
       "",
-      `📖 Dia ${currentDay} de 365`,
-      `🔥 Sequência de ${streak} dias`,
-      `⭐ XP acumulado: ${totalXP}`,
+      `🙏 Dia ${currentDay} de 365`,
       "",
-      "Lendo o Novo Testamento em apenas 10 minutos por dia.",
+      "📖 Leitura concluída",
+      "🧠 Quiz concluído",
+      "✝️ Palavra da Fé concluída",
       "",
-      "Veja meu progresso:",
-      "",
-      resultUrl
-    ].join("\n"));
-  }
-
-  if (completedAll || params.variant === "complete") {
-    return assertCleanUtf8([
-      "🙏 Acabei de concluir minha Missão da Fé!",
-      "",
-      `📖 Jornada: Dia ${currentDay} de 365`,
-      `🧠 Quiz: ${quizScore}/${quizTotal}`,
-      `✝️ Palavra da Fé: ${wordScore}/6`,
       `🔥 Sequência: ${streak} dias`,
-      `⭐ XP conquistado hoje: ${xpToday}`,
+      `⭐ XP total: ${totalXP}`,
       "",
-      "Cada dia é um passo para concluir todo o Novo Testamento.",
-      "",
-      "Veja meu resultado:",
+      "Um passo de cada vez até concluir todo o Novo Testamento.",
       "",
       resultUrl,
       "",
@@ -95,18 +79,25 @@ export function generateShareMessage(params: ShareMessageParams) {
   }
 
   return assertCleanUtf8([
-    "🙏 Estou avançando na minha Missão da Fé de hoje.",
+    "🙏 Estou participando da Missão da Fé!",
     "",
-    `📖 Jornada: Dia ${currentDay} de 365`,
-    `🧠 Quiz: ${quizScore}/${quizTotal}`,
-    `✝️ Palavra da Fé: ${wordScore}/6`,
-    `⭐ XP conquistado hoje: ${xpToday}`,
+    `📖 Dia ${currentDay} de 365`,
+    `🔥 Sequência: ${streak} dias`,
+    `⭐ XP total: ${totalXP}`,
     "",
-    "Uma missão diária para ler o Novo Testamento com constância.",
+    "Hoje concluí:",
+    "",
+    params.readingDone ? "📖 Leitura" : "📖 Leitura em andamento",
+    quizScore > 0 ? "🧠 Quiz" : "🧠 Quiz em andamento",
+    wordScore > 0 ? "✝️ Palavra da Fé" : "✝️ Palavra da Fé em andamento",
+    "",
+    "Estou lendo o Novo Testamento inteiro em apenas 10 minutos por dia.",
     "",
     "Veja meu progresso:",
     "",
-    resultUrl
+    resultUrl,
+    "",
+    "Comece sua jornada também 🙌"
   ].join("\n"));
 }
 

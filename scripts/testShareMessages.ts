@@ -38,7 +38,7 @@ for (const scenario of scenarios) {
   });
   const decoded = decodeURIComponent(url.split("text=")[1] ?? "");
 
-  if (message.includes("�") || decoded.includes("�")) {
+  if (message.includes("\uFFFD") || decoded.includes("\uFFFD")) {
     throw new Error(`${scenario.name}: emoji quebrado na mensagem.`);
   }
 
@@ -46,11 +46,33 @@ for (const scenario of scenarios) {
     throw new Error(`${scenario.name}: mensagem gerou Dia 0.`);
   }
 
-  for (const emoji of ["🙏", "📖", "🧠", "✝️", "🔥", "⭐", "🙌"]) {
+  for (const emoji of ["🙏", "📖", "🧠", "✝️", "🔥", "⭐", "🏆", "🙌"]) {
     if (!decoded.includes(emoji)) {
       throw new Error(`${scenario.name}: emoji ausente ${emoji}`);
     }
   }
 
   console.log(`${scenario.name}: OK`);
+}
+
+const partialMessage = generateShareMessage({
+  currentDay: 0,
+  streak: 0,
+  totalXP: 10,
+  quizScore: 0,
+  quizTotal: 3,
+  wordScore: 0,
+  readingDone: false,
+  resultUrl: "https://missao-da-fe.vercel.app/resultado/parcial",
+  variant: "partial"
+});
+
+if (partialMessage.includes("\uFFFD") || /Dia 0\b/.test(partialMessage)) {
+  throw new Error("Mensagem parcial gerou encoding quebrado ou Dia 0.");
+}
+
+for (const emoji of ["🙏", "📖", "🧠", "✝️", "🔥", "⭐", "🙌"]) {
+  if (!partialMessage.includes(emoji)) {
+    throw new Error(`Mensagem parcial: emoji ausente ${emoji}`);
+  }
 }

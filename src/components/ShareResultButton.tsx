@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { buildWhatsAppShareUrl } from "@/utils/share";
+import type { MouseEvent } from "react";
+import { buildWhatsAppShareUrl, generateShareMessage } from "@/utils/share";
 import type { DayHistory, UserProgress } from "@/types/dailyProgress";
 import { trackEvent } from "@/services/analyticsService";
 import { buildPublicResult, savePublicResult } from "@/services/publicResultService";
@@ -15,6 +16,12 @@ export function ShareResultButton({ progress, todayHistory }: ShareResultButtonP
   const url = typeof window === "undefined" ? "" : window.location.origin;
   const [publicResultUrl, setPublicResultUrl] = useState("");
   const fallbackResult = buildPublicResult(progress, todayHistory);
+  const readingDone = Boolean(todayHistory.results.gospel);
+  const quizScore = todayHistory.results.quiz?.quiz?.score ?? 0;
+  const quizTotal = todayHistory.results.quiz?.quiz?.total ?? 3;
+  const wordAttempts = todayHistory.results.word?.word?.attempts ?? 0;
+  const wordSolved = Boolean(todayHistory.results.word?.word?.solved);
+  const missionCompleted = readingDone && quizScore >= quizTotal && wordSolved;
 
   useEffect(() => {
     let isMounted = true;
@@ -32,12 +39,12 @@ export function ShareResultButton({ progress, todayHistory }: ShareResultButtonP
   }, [progress, todayHistory]);
 
   const shareUrl = buildWhatsAppShareUrl({
-    readingDone: Boolean(todayHistory.results.gospel),
-    quizScore: todayHistory.results.quiz?.quiz?.score ?? 0,
-    quizTotal: todayHistory.results.quiz?.quiz?.total ?? 3,
-    wordScore: todayHistory.results.word?.word?.attempts ?? 0,
-    wordAttempts: todayHistory.results.word?.word?.attempts ?? 0,
-    wordSolved: Boolean(todayHistory.results.word?.word?.solved),
+    readingDone,
+    quizScore,
+    quizTotal,
+    wordScore: wordAttempts,
+    wordAttempts,
+    wordSolved,
     streak: progress.currentStreak,
     xpToday: todayHistory.xpEarned,
     totalXP: progress.totalXP,
@@ -45,10 +52,10 @@ export function ShareResultButton({ progress, todayHistory }: ShareResultButtonP
     url,
     resultUrl: publicResultUrl || url,
     publicResultUrl,
-    variant: "complete"
+    variant: missionCompleted ? "complete" : "partial"
   });
 
-  async function handleShare(event: React.MouseEvent<HTMLAnchorElement>) {
+  async function handleShare(event: MouseEvent<HTMLAnchorElement>) {
     void trackEvent({
       eventName: "whatsapp_shared",
       userId: progress.anonymousUserId,
@@ -61,7 +68,20 @@ export function ShareResultButton({ progress, todayHistory }: ShareResultButtonP
     event.preventDefault();
     await navigator.share({
       title: "Missão da Fé",
-      text: "Acabei de concluir minha Missão da Fé.",
+      text: generateShareMessage({
+        readingDone,
+        quizScore,
+        quizTotal,
+        wordScore: wordAttempts,
+        wordAttempts,
+        wordSolved,
+        streak: progress.currentStreak,
+        xpToday: todayHistory.xpEarned,
+        totalXP: progress.totalXP,
+        currentDay: fallbackResult.journeyDay,
+        resultUrl: publicResultUrl,
+        variant: missionCompleted ? "complete" : "partial"
+      }),
       url: publicResultUrl
     }).catch(() => {
       window.open(shareUrl, "_blank", "noopener,noreferrer");

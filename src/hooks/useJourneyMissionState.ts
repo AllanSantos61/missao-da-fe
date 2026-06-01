@@ -97,16 +97,13 @@ function normalizeMissionStatus(params: {
         ? "word"
         : "completed";
 
-  const status = {
+  return {
     dayNumber: params.dayNumber,
     readingCompleted,
     quizCompleted,
     wordCompleted,
     nextStep
   } satisfies DayMissionStatus;
-
-  console.log(status);
-  return status;
 }
 
 export function useJourneyMissionState(journey: CurrentReadingState | null, todayHistory?: DayHistory | null): TodayMissionState {
