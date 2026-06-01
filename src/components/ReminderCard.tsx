@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { requestNotificationPermission, scheduleLocalReminderPlaceholder } from "@/services/notificationService";
 import { trackEvent } from "@/services/analyticsService";
+import { requestNotificationPermission, scheduleLocalReminderPlaceholder } from "@/services/notificationService";
 import type { ReminderPeriod, ReminderPreference, UserProgress } from "@/types/dailyProgress";
 
 type ReminderCardProps = {
@@ -14,7 +14,7 @@ const periods: Array<{ value: ReminderPeriod; label: string }> = [
   { value: "morning", label: "Manhã" },
   { value: "afternoon", label: "Tarde" },
   { value: "night", label: "Noite" },
-  { value: "custom", label: "Personalizado" }
+  { value: "custom", label: "Hora" }
 ];
 
 export function ReminderCard({ progress, onSave }: ReminderCardProps) {
@@ -26,7 +26,7 @@ export function ReminderCard({ progress, onSave }: ReminderCardProps) {
     onSave(nextReminder);
     scheduleLocalReminderPlaceholder(nextReminder);
     const permission = await requestNotificationPermission();
-    setMessage(permission === "granted" ? "Lembrete preparado neste dispositivo." : "Em breve você poderá receber lembretes automáticos.");
+    setMessage(permission === "granted" ? "Lembrete preparado neste dispositivo." : "Lembrete salvo no app.");
     void trackEvent({
       eventName: "reminder_saved",
       userId: progress.anonymousUserId,
@@ -36,16 +36,22 @@ export function ReminderCard({ progress, onSave }: ReminderCardProps) {
   }
 
   return (
-    <section className="rounded-[1.75rem] bg-white p-5 shadow-card">
-      <p className="text-xs font-black uppercase tracking-[0.18em] text-gold">Lembrete diário</p>
-      <h3 className="mt-2 text-xl font-black text-navy">Voltar para a missão</h3>
-      <p className="mt-2 text-sm leading-6 text-ink/68">{message}</p>
-      <div className="mt-4 grid grid-cols-2 gap-2">
+    <section className="rounded-[1.25rem] bg-white p-4 shadow-card">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-gold">Lembrete diário</p>
+          <p className="mt-1 text-sm font-bold leading-5 text-ink/65">{message}</p>
+        </div>
+        <button onClick={saveReminder} className="shrink-0 rounded-full bg-gold px-4 py-2 text-xs font-black text-navy">
+          Salvar
+        </button>
+      </div>
+      <div className="mt-3 grid grid-cols-4 gap-1.5">
         {periods.map((period) => (
           <button
             key={period.value}
             onClick={() => setReminder((current) => ({ ...current, period: period.value }))}
-            className={`rounded-2xl px-3 py-3 text-sm font-black ${
+            className={`rounded-xl px-2 py-2 text-xs font-black ${
               reminder.period === period.value ? "bg-navy text-white" : "bg-parchment text-navy"
             }`}
           >
@@ -58,12 +64,9 @@ export function ReminderCard({ progress, onSave }: ReminderCardProps) {
           type="time"
           value={reminder.customTime}
           onChange={(event) => setReminder((current) => ({ ...current, customTime: event.target.value }))}
-          className="mt-3 w-full rounded-2xl border border-navy/10 bg-parchment px-4 py-3 font-black text-navy"
+          className="mt-2 w-full rounded-xl border border-navy/10 bg-parchment px-3 py-2 text-sm font-black text-navy"
         />
       ) : null}
-      <button onClick={saveReminder} className="mt-4 w-full rounded-2xl bg-gold px-4 py-3 font-black text-navy">
-        Salvar lembrete
-      </button>
     </section>
   );
 }

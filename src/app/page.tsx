@@ -17,7 +17,6 @@ import { WordFaithGame } from "@/components/WordFaithGame";
 import { useBibleJourney } from "@/hooks/useBibleJourney";
 import { useDailyChallengeContent } from "@/hooks/useDailyChallengeContent";
 import { useDailyProgress } from "@/hooks/useDailyProgress";
-import { useVisitCounter } from "@/hooks/useVisitCounter";
 import { trackEvent } from "@/services/analyticsService";
 import type { ChallengeId, DailyChallengeResult, UserProgress } from "@/types/dailyProgress";
 
@@ -27,12 +26,27 @@ const missionSteps: Array<{ id: ChallengeId; label: string; description: string 
   { id: "word", label: "Palavra", description: "Descubra a palavra cristã de 5 letras." }
 ];
 
+const achievements = [
+  { day: 7, title: "Primeira Semana" },
+  { day: 30, title: "30 Dias" },
+  { day: 100, title: "100 Perguntas" },
+  { day: 40, title: "Evangelho de Mateus" },
+  { day: 365, title: "Novo Testamento Completo" }
+];
+
+function getJourneyAvatar(day: number) {
+  if (day >= 365) return "🏆";
+  if (day >= 180) return "⭐";
+  if (day >= 100) return "🌳";
+  if (day >= 30) return "🌿";
+  return "🌱";
+}
+
 export default function Home() {
   const [selectedChallenge, setSelectedChallenge] = useState<ChallengeId | null>(null);
   const [showNameModal, setShowNameModal] = useState(false);
   const [showRankingModal, setShowRankingModal] = useState(false);
   const [showCommunityModal, setShowCommunityModal] = useState(false);
-  const visits = useVisitCounter();
   const dailyChallengeContent = useDailyChallengeContent();
   const {
     progress,
@@ -180,6 +194,8 @@ export default function Home() {
 
   const selectedResult = selectedChallenge ? todayHistory.results[selectedChallenge] : undefined;
   const selectedJourneyDay = journey?.calendar.find((day) => day.dayNumber === journey.selectedDay);
+  const currentJourneyDay = journey?.progress.currentJourneyDay ?? 1;
+  const avatar = getJourneyAvatar(currentJourneyDay);
   const journeyQuizData = journey?.mission
     ? {
         title: `Quiz do Dia ${journey.selectedDay}`,
@@ -263,7 +279,6 @@ export default function Home() {
       <AppTopBar
         selectedChallenge={selectedChallenge}
         playerName={progress.playerName}
-        visits={visits}
         onHome={goHome}
         onSelectChallenge={selectChallenge}
         onOpenName={() => setShowNameModal(true)}
@@ -275,12 +290,15 @@ export default function Home() {
         {!selectedChallenge ? (
           <>
             <section className="rounded-[2rem] bg-white p-5 text-center shadow-card">
-              <div className="flex justify-center">
+              <div className="flex items-center justify-center gap-3">
                 <MissaoDaFeLogo size="header" />
+                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-parchment text-2xl shadow-sm">
+                  {avatar}
+                </span>
               </div>
               <p className="mt-5 text-xs font-black uppercase tracking-[0.2em] text-gold">Jornada da Fé</p>
               <h1 className="mt-2 text-4xl font-black leading-tight text-navy">
-                Dia {journey?.progress.currentJourneyDay ?? 1} de 365
+                Dia {currentJourneyDay} de 365
               </h1>
               <p className="mt-3 text-lg font-black leading-7 text-ink">
                 Leia o Novo Testamento em apenas 10 minutos por dia.
@@ -294,6 +312,31 @@ export default function Home() {
               >
                 Continuar Missão
               </button>
+            </section>
+
+            <section className="rounded-[1.75rem] bg-navy p-4 text-white shadow-soft">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-gold">Sua Jornada</p>
+              <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                <div className="rounded-2xl bg-white/10 p-3">
+                  <p className="text-white/60">📖 Dia atual</p>
+                  <p className="font-black">{currentJourneyDay}/365</p>
+                </div>
+                <div className="rounded-2xl bg-white/10 p-3">
+                  <p className="text-white/60">🔥 Sequência</p>
+                  <p className="font-black">{journey?.progress.currentStreak ?? progress.currentStreak} dias</p>
+                </div>
+                <div className="rounded-2xl bg-white/10 p-3">
+                  <p className="text-white/60">⭐ XP total</p>
+                  <p className="font-black">{progress.totalXP}</p>
+                </div>
+                <div className="rounded-2xl bg-white/10 p-3">
+                  <p className="text-white/60">🏆 Ranking</p>
+                  <p className="font-black">{progress.weeklyXP > 0 ? "#1" : "Começando"}</p>
+                </div>
+              </div>
+              <p className="mt-3 text-sm font-bold leading-6 text-white/76">
+                Você está construindo um hábito diário de leitura.
+              </p>
             </section>
 
             <section className="rounded-[1.75rem] bg-white p-5 shadow-card">
@@ -328,6 +371,38 @@ export default function Home() {
               </div>
             </section>
 
+            <section className="grid gap-3 sm:grid-cols-3">
+              {missionSteps.map((step) => {
+                const completed = todayHistory.completedChallenges.includes(step.id);
+                const nextPending = missionSteps.find((item) => !todayHistory.completedChallenges.includes(item.id))?.id;
+                const status = completed ? "Concluído" : step.id === nextPending ? "Disponível" : "Pendente";
+                return (
+                  <article
+                    key={step.id}
+                    className="flex min-h-[150px] flex-col justify-between rounded-[1.25rem] border border-white bg-altar p-4 shadow-card"
+                  >
+                    <div>
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-lg font-black text-navy">{step.label}</p>
+                        <span className={`rounded-full px-3 py-1 text-xs font-black ${
+                          completed ? "bg-faithGreen/12 text-faithGreen" : status === "Disponível" ? "bg-gold/15 text-navy" : "bg-stone/20 text-ink/55"
+                        }`}>
+                          {status}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-sm leading-6 text-ink/65">{step.description}</p>
+                    </div>
+                    <button
+                      onClick={() => selectChallenge(step.id)}
+                      className="mt-4 w-full rounded-2xl bg-navy px-4 py-3 text-sm font-black text-white"
+                    >
+                      {completed ? "Rever" : "Continuar"}
+                    </button>
+                  </article>
+                );
+              })}
+            </section>
+
             {journey ? (
               <section className="space-y-3">
                 <div className="rounded-[1.75rem] bg-white p-5 shadow-card">
@@ -352,25 +427,25 @@ export default function Home() {
 
             <ReminderCard progress={progress} onSave={updateReminderPreference} />
 
-            <section className="rounded-[1.75rem] bg-navy p-5 text-white shadow-soft">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-gold">Seu progresso</p>
-              <div className="mt-4 grid grid-cols-3 gap-2 text-center text-sm">
-                <div className="rounded-2xl bg-white/10 p-3">
-                  <p className="text-white/60">Dia atual</p>
-                  <p className="font-black">{journey?.progress.currentJourneyDay ?? 1}/365</p>
-                </div>
-                <div className="rounded-2xl bg-white/10 p-3">
-                  <p className="text-white/60">Sequência</p>
-                  <p className="font-black">{journey?.progress.currentStreak ?? progress.currentStreak} dias</p>
-                </div>
-                <div className="rounded-2xl bg-white/10 p-3">
-                  <p className="text-white/60">XP total</p>
-                  <p className="font-black">{progress.totalXP}</p>
-                </div>
+            <section className="rounded-[1.75rem] bg-white p-5 shadow-card">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-gold">Conquistas</p>
+              <h2 className="mt-1 text-xl font-black text-navy">Marcos da caminhada</h2>
+              <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
+                {achievements.map((achievement) => {
+                  const unlocked = currentJourneyDay >= achievement.day;
+                  return (
+                    <div
+                      key={achievement.title}
+                      className={`rounded-2xl p-3 text-center ${
+                        unlocked ? "bg-gold/15 text-navy ring-1 ring-gold/25" : "bg-parchment text-ink/48"
+                      }`}
+                    >
+                      <p className="text-2xl">{unlocked ? "🏅" : "○"}</p>
+                      <p className="mt-1 text-xs font-black leading-4">{achievement.title}</p>
+                    </div>
+                  );
+                })}
               </div>
-              <p className="mt-4 text-sm font-bold leading-6 text-white/76">
-                Você está no começo da jornada. Cada dia concluído fortalece seu hábito de leitura.
-              </p>
             </section>
 
             <section className="rounded-[1.75rem] bg-white p-5 shadow-card">

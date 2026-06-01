@@ -1,12 +1,11 @@
 "use client";
 
-import type { ChallengeId } from "@/types/dailyProgress";
 import { MissaoDaFeLogo } from "@/components/MissaoDaFeLogo";
+import type { ChallengeId } from "@/types/dailyProgress";
 
 type AppTopBarProps = {
   selectedChallenge: ChallengeId | null;
   playerName: string;
-  visits: number | null;
   onHome: () => void;
   onSelectChallenge: (challengeId: ChallengeId) => void;
   onOpenName: () => void;
@@ -23,7 +22,6 @@ const navItems: Array<{ id: ChallengeId; label: string }> = [
 export function AppTopBar({
   selectedChallenge,
   playerName,
-  visits,
   onHome,
   onSelectChallenge,
   onOpenName,
@@ -33,10 +31,6 @@ export function AppTopBar({
   return (
     <div className="sticky top-0 z-40 -mx-4 border-b border-navy/10 bg-parchment/94 px-4 py-3 backdrop-blur">
       <div className="mx-auto flex max-w-3xl flex-col gap-3">
-        <div className="flex items-center justify-between gap-3 text-xs font-black text-navy/62">
-          <span>👥 Acessos: {visits ?? "..."}</span>
-          <span className="hidden sm:inline">Missão diária em poucos minutos</span>
-        </div>
         <div className="flex items-center justify-between gap-3">
           <button
             onClick={onHome}
@@ -49,8 +43,7 @@ export function AppTopBar({
               onClick={onOpenRanking}
               className="rounded-full bg-gold px-3 py-2 text-xs font-black text-ink shadow-sm"
             >
-              <span className="sm:hidden">Ranking</span>
-              <span className="hidden sm:inline">Ranking da Semana</span>
+              Ranking
             </button>
             <button
               onClick={onOpenCommunity}
