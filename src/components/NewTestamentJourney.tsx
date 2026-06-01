@@ -117,6 +117,7 @@ export function NewTestamentJourney({
       scoreLabel: `${nextState.progress.completedReadings}/${nextState.progress.totalReadings}`,
       gospel: { completed: true }
     });
+    window.setTimeout(onNextMission, 250);
   }
 
   async function copyVerse(text: string, key: string) {

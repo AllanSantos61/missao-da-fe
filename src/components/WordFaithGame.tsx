@@ -81,6 +81,7 @@ export function WordFaithGame({
         guesses: nextGuesses
       }
     });
+    window.setTimeout(onNextMission, 250);
   }
 
   function handleSubmitGuess() {

@@ -18,6 +18,7 @@ import { WordFaithGame } from "@/components/WordFaithGame";
 import { useBibleJourney } from "@/hooks/useBibleJourney";
 import { useDailyChallengeContent } from "@/hooks/useDailyChallengeContent";
 import { useDailyProgress } from "@/hooks/useDailyProgress";
+import { useJourneyMissionState } from "@/hooks/useJourneyMissionState";
 import { trackEvent } from "@/services/analyticsService";
 import type { ChallengeId, DailyChallengeResult, UserProgress } from "@/types/dailyProgress";
 
@@ -26,8 +27,6 @@ const missionSteps: Array<{ id: ChallengeId; label: string; description: string 
   { id: "quiz", label: "Quiz", description: "Responda 3 perguntas sobre a leitura." },
   { id: "word", label: "Palavra", description: "Descubra a palavra cristã de 5 letras." }
 ];
-
-const missionStepOrder: ChallengeId[] = ["gospel", "quiz", "word"];
 
 const achievements = [
   { day: 7, title: "Primeira Semana" },
@@ -72,6 +71,7 @@ export default function Home() {
     completeReading,
     completeJourneyPart
   } = useBibleJourney(progress?.anonymousUserId ?? "", progress?.playerName ?? "");
+  const todayMissionState = useJourneyMissionState(journey, todayHistory);
 
   useEffect(() => {
     refreshDay();
@@ -104,46 +104,10 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function getTodayMissionState() {
-    const journeyDay = journey?.selectedDay ?? journey?.progress.currentJourneyDay ?? 1;
-    const journeyDayStatus = journey?.calendar.find((day) => day.dayNumber === journeyDay);
-    const hasJourneyStatus = Boolean(journeyDayStatus);
-    const readingCompleted = hasJourneyStatus
-      ? Boolean(journeyDayStatus?.readingCompleted)
-      : Boolean(todayHistory?.results.gospel);
-    const quizCompleted = hasJourneyStatus
-      ? Boolean(journeyDayStatus?.quizCompleted)
-      : Boolean(todayHistory?.results.quiz);
-    const wordCompleted = hasJourneyStatus
-      ? Boolean(journeyDayStatus?.wordCompleted)
-      : Boolean(todayHistory?.results.word);
-    const completedCount = [readingCompleted, quizCompleted, wordCompleted].filter(Boolean).length;
-    const nextPendingStep =
-      missionStepOrder.find((step) => {
-        if (step === "gospel") return !readingCompleted;
-        if (step === "quiz") return !quizCompleted;
-        return !wordCompleted;
-      }) ?? null;
-    const isMissionCompleted = readingCompleted && quizCompleted && wordCompleted;
-
-    return {
-      journeyDay,
-      readingCompleted,
-      quizCompleted,
-      wordCompleted,
-      completedCount,
-      totalSteps: 3,
-      isMissionCompleted,
-      nextPendingStep,
-      canContinueToday: !isMissionCompleted && Boolean(nextPendingStep)
-    };
-  }
-
   function getStepCompleted(challengeId: ChallengeId) {
-    const state = getTodayMissionState();
-    if (challengeId === "gospel") return state.readingCompleted;
-    if (challengeId === "quiz") return state.quizCompleted;
-    return state.wordCompleted;
+    if (challengeId === "gospel") return todayMissionState.readingCompleted;
+    if (challengeId === "quiz") return todayMissionState.quizCompleted;
+    return todayMissionState.wordCompleted;
   }
   function handleComplete(result: DailyChallengeResult) {
     completeChallenge(result.id, result);
@@ -194,6 +158,18 @@ export default function Home() {
   }
 
   function selectChallenge(challengeId: ChallengeId) {
+    if (challengeId === "quiz" && !todayMissionState.readingCompleted) {
+      setHomeNotice("Conclua a leitura para liberar o Quiz.");
+      void openMission("gospel");
+      return;
+    }
+
+    if (challengeId === "word" && !todayMissionState.quizCompleted) {
+      setHomeNotice("Conclua o Quiz para liberar a Palavra da Fé.");
+      void openMission(todayMissionState.readingCompleted ? "quiz" : "gospel");
+      return;
+    }
+
     setHomeNotice("");
     setSelectedChallenge(challengeId);
     void trackEvent({
@@ -213,12 +189,15 @@ export default function Home() {
   }
 
   function getNextMission(currentChallenge: ChallengeId) {
-    const currentIndex = missionStepOrder.indexOf(currentChallenge);
-    const rotatedOrder = [...missionStepOrder.slice(currentIndex + 1), ...missionStepOrder.slice(0, currentIndex + 1)];
-    return rotatedOrder.find((challengeId) => !getStepCompleted(challengeId)) ?? null;
+    if (currentChallenge === "gospel" && !todayMissionState.quizCompleted) return "quiz";
+    if (currentChallenge === "quiz" && !todayMissionState.wordCompleted) return "word";
+    return null;
   }
 
-  function openMission(challengeId: ChallengeId) {
+  async function openMission(challengeId: ChallengeId, dayNumber = todayMissionState.currentMissionDay) {
+    if (journey && journey.selectedDay !== dayNumber) {
+      await selectJourneyDay(dayNumber);
+    }
     selectChallenge(challengeId);
     router.push(`/?missao=${challengeId}`, { scroll: false });
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -231,19 +210,18 @@ export default function Home() {
         return;
       }
 
-      const missionState = getTodayMissionState();
-      const nextMission = missionState.nextPendingStep;
+      const nextMission = todayMissionState.nextPendingStep;
       if (!nextMission) {
-        setHomeNotice("Missão de hoje concluída.");
+        setHomeNotice("Missão de hoje concluída. A próxima missão será liberada amanhã.");
         return;
       }
 
       if (nextMission !== "gospel" && !journey?.mission) {
-        openMission("gospel");
+        void openMission("gospel");
         return;
       }
 
-      openMission(nextMission);
+      void openMission(nextMission);
     } catch (error) {
       console.info("[Missão da Fé] Falha ao continuar missão; voltando para a Home.", error);
       setSelectedChallenge(null);
@@ -254,7 +232,7 @@ export default function Home() {
 
   function goToNextMission(currentChallenge: ChallengeId) {
     const nextMission = getNextMission(currentChallenge);
-    if (nextMission) openMission(nextMission);
+    if (nextMission) void openMission(nextMission);
     else goHome();
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -278,7 +256,6 @@ export default function Home() {
 
   const selectedResult = selectedChallenge ? todayHistory.results[selectedChallenge] : undefined;
   const selectedJourneyDay = journey?.calendar.find((day) => day.dayNumber === journey.selectedDay);
-  const todayMissionState = getTodayMissionState();
   const currentJourneyDay = journey?.progress.currentJourneyDay ?? 1;
   const avatar = getJourneyAvatar(currentJourneyDay);
   const journeyQuizData = journey?.mission
@@ -400,11 +377,14 @@ export default function Home() {
                   onClick={continueDailyMission}
                   className="mt-5 w-full rounded-2xl bg-gold px-5 py-4 font-black text-navy shadow-card transition hover:-translate-y-0.5"
                 >
-                  Continuar Missão
+                  {todayMissionState.primaryActionLabel}
                 </button>
               ) : (
-                <div className="mt-5">
+                <div className="mt-5 space-y-3">
                   <ShareResultButton progress={progress} todayHistory={todayHistory} />
+                  <p className="rounded-2xl bg-parchment px-4 py-3 text-sm font-black text-navy">
+                    Próxima missão em: {todayMissionState.nextMissionCountdown}
+                  </p>
                 </div>
               )}
               {homeNotice ? (
@@ -452,11 +432,13 @@ export default function Home() {
               <div className="mt-4 grid gap-2">
                 {missionSteps.map((step) => {
                   const completed = getStepCompleted(step.id);
+                  const isAvailable = completed || step.id === todayMissionState.nextPendingStep;
                   return (
                     <button
                       key={step.id}
                       onClick={() => selectChallenge(step.id)}
-                      className="flex items-center justify-between rounded-2xl bg-parchment px-4 py-3 text-left transition hover:-translate-y-0.5"
+                      disabled={!isAvailable}
+                      className="flex items-center justify-between rounded-2xl bg-parchment px-4 py-3 text-left transition enabled:hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-65"
                     >
                       <span className="flex items-center gap-3 font-black text-navy">
                         <span className={`flex h-7 w-7 items-center justify-center rounded-full ${completed ? "bg-faithGreen text-white" : "bg-white text-navy"}`}>
@@ -464,8 +446,8 @@ export default function Home() {
                         </span>
                         {step.label}
                       </span>
-                      <span className={`rounded-full px-3 py-1 text-xs font-black ${completed ? "bg-faithGreen/12 text-faithGreen" : "bg-gold/15 text-navy"}`}>
-                        {completed ? "Concluído" : "Disponível"}
+                      <span className={`rounded-full px-3 py-1 text-xs font-black ${completed ? "bg-faithGreen/12 text-faithGreen" : isAvailable ? "bg-gold/15 text-navy" : "bg-stone/20 text-ink/55"}`}>
+                        {completed ? "Concluído" : isAvailable ? "Disponível" : "Bloqueada"}
                       </span>
                     </button>
                   );
@@ -476,7 +458,7 @@ export default function Home() {
             <section className="grid gap-3 sm:grid-cols-3">
               {missionSteps.map((step) => {
                 const completed = getStepCompleted(step.id);
-                const status = completed ? "Concluído" : step.id === todayMissionState.nextPendingStep ? "Disponível" : "Pendente";
+                const status = completed ? "Concluído" : step.id === todayMissionState.nextPendingStep ? "Disponível" : "Bloqueada";
                 return (
                   <article
                     key={step.id}
@@ -500,9 +482,10 @@ export default function Home() {
                     </div>
                     <button
                       onClick={() => selectChallenge(step.id)}
-                      className="mt-4 w-full rounded-2xl bg-navy px-4 py-3 text-sm font-black text-white"
+                      disabled={!completed && status === "Bloqueada"}
+                      className="mt-4 w-full rounded-2xl bg-navy px-4 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:bg-stone"
                     >
-                      {completed ? "Rever" : "Começar"}
+                      {completed ? "Rever" : status === "Bloqueada" ? "Bloqueada" : "Começar"}
                     </button>
                   </article>
                 );

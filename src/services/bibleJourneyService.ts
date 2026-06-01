@@ -83,7 +83,7 @@ export function getJourneyDayStatus(
 
 function buildProgress(playerName: string, row: JourneyProgressRow, completedRows: JourneyDayRow[]): BibleProgress {
   const completedDays = completedRows
-    .filter((day) => day.status === "completed")
+    .filter((day) => day.reading_completed && day.quiz_completed && day.word_completed)
     .map((day) => day.day_number)
     .sort((a, b) => a - b);
   const lastCompletedDate =
@@ -100,7 +100,7 @@ function buildProgress(playerName: string, row: JourneyProgressRow, completedRow
   return {
     playerName,
     journeyStartDate: row.journey_start_date,
-    currentJourneyDay: missedDays[0] ?? Math.min(availableJourneyDay + 1, TOTAL_READINGS),
+    currentJourneyDay: missedDays[0] ?? availableJourneyDay,
     availableJourneyDay,
     completedDays,
     missedDays,
@@ -129,7 +129,13 @@ function buildCalendar(progress: BibleProgress, completedRows: JourneyDayRow[]):
     );
     return {
       dayNumber,
-      status: isFullyCompleted ? "completed" : getJourneyDayStatus(dayNumber, progress.completedDays, progress.availableJourneyDay),
+      status: isFullyCompleted
+        ? "completed"
+        : dayNumber > progress.availableJourneyDay
+          ? "locked"
+          : dayNumber === progress.currentJourneyDay
+            ? "available"
+            : "pending",
       readingCompleted: Boolean(completed?.reading_completed),
       quizCompleted: Boolean(completed?.quiz_completed),
       wordCompleted: Boolean(completed?.word_completed),
@@ -238,7 +244,8 @@ async function buildState(userId: string, playerName: string, selectedDay?: numb
   const progressRow = await getOrCreateJourneyProgress(userId, playerName);
   const completedRows = await getCompletedDays(userId, playerName);
   const progress = buildProgress(playerName, progressRow, completedRows);
-  const dayNumber = Math.min(Math.max(selectedDay ?? progress.currentJourneyDay, 1), TOTAL_READINGS);
+  const requestedDay = Math.min(Math.max(selectedDay ?? progress.currentJourneyDay, 1), TOTAL_READINGS);
+  const dayNumber = requestedDay > progress.availableJourneyDay ? progress.currentJourneyDay : requestedDay;
   logJourney("Calculated journey day", {
     playerName,
     dayNumber,

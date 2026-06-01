@@ -47,6 +47,7 @@ export function QuizFaith({
         answers
       }
     });
+    window.setTimeout(onNextMission, 250);
   }
 
   return (

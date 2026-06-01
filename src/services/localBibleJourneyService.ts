@@ -112,7 +112,7 @@ function buildProgress(playerName: string, state: LocalJourneyState): BibleProgr
 
   const completed = state.completedByPlayer[playerKey] ?? [];
   const completedDays = completed
-    .filter((day) => day.status === "completed")
+    .filter((day) => day.readingCompleted && day.quizCompleted && day.wordCompleted)
     .map((day) => day.dayNumber)
     .sort((a, b) => a - b);
   const availableJourneyDay = getAvailableJourneyDay(base.journeyStartDate);
@@ -124,7 +124,7 @@ function buildProgress(playerName: string, state: LocalJourneyState): BibleProgr
   return {
     playerName: playerKey,
     journeyStartDate: base.journeyStartDate,
-    currentJourneyDay: missedDays[0] ?? Math.min(availableJourneyDay + 1, TOTAL_READINGS),
+    currentJourneyDay: missedDays[0] ?? availableJourneyDay,
     availableJourneyDay,
     completedDays,
     missedDays,
@@ -153,7 +153,13 @@ function buildCalendar(progress: BibleProgress, completedRows: CompletedJourneyD
     );
     return {
       dayNumber,
-      status: isFullyCompleted ? "completed" : getJourneyDayStatus(dayNumber, progress.completedDays, progress.availableJourneyDay),
+      status: isFullyCompleted
+        ? "completed"
+        : dayNumber > progress.availableJourneyDay
+          ? "locked"
+          : dayNumber === progress.currentJourneyDay
+            ? "available"
+            : "pending",
       readingCompleted: Boolean(completed?.readingCompleted),
       quizCompleted: Boolean(completed?.quizCompleted),
       wordCompleted: Boolean(completed?.wordCompleted),
@@ -170,7 +176,8 @@ export async function getJourneyDay(playerName: string, dayNumber?: number): Pro
   const completedRows = state.completedByPlayer[playerKey] ?? [];
   saveState(state);
 
-  const selectedDay = Math.min(Math.max(dayNumber ?? progress.currentJourneyDay, 1), TOTAL_READINGS);
+  const requestedDay = Math.min(Math.max(dayNumber ?? progress.currentJourneyDay, 1), TOTAL_READINGS);
+  const selectedDay = requestedDay > progress.availableJourneyDay ? progress.currentJourneyDay : requestedDay;
   const calendar = buildCalendar(progress, completedRows);
   const mission = await getJourneyMission(selectedDay);
 
