@@ -2,9 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminShell } from "@/components/admin/AdminShell";
+import { resolveAdminUserKey } from "@/lib/adminUserIdentity";
 
 type AdminUser = {
   id: string;
+  profile_id?: string | null;
+  progress_id?: string | null;
   user_id: string | null;
   local_user_id: string | null;
   player_name: string | null;
@@ -27,14 +30,25 @@ type ApiResponse<T> = {
   error?: string;
 };
 
-function getUserIdentifier(user: AdminUser) {
-  return user.local_user_id || user.user_id || user.id;
+function getIdentityPayload(user: AdminUser) {
+  const profileId = user.profile_id || user.id || null;
+  const localUserId = user.local_user_id || null;
+  const userId = user.user_id || null;
+  const resolved = resolveAdminUserKey({ profileId, localUserId, userId });
+  return {
+    profileId: resolved.profileId,
+    localUserId: resolved.localUserId,
+    userId: resolved.userId,
+    keyType: resolved.keyType,
+    key: resolved.key
+  };
 }
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [search, setSearch] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [actionLoadingKey, setActionLoadingKey] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
@@ -43,7 +57,7 @@ export default function AdminUsersPage() {
     const term = search.trim().toLowerCase();
     if (!term) return users;
     return users.filter((user) =>
-      [user.player_name, user.local_user_id, user.user_id, user.id]
+      [user.player_name, user.local_user_id, user.user_id, user.profile_id, user.id]
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(term))
     );
@@ -71,14 +85,18 @@ export default function AdminUsersPage() {
     }
   }, []);
 
-  async function postAction(path: string, label: string, body?: Record<string, unknown>) {
+  async function postAction(path: string, label: string, user?: AdminUser, confirmation?: string) {
+    if (confirmation && !window.confirm(confirmation)) return;
     setError("");
     setMessage("");
+    const payload = user ? getIdentityPayload(user) : undefined;
+    const loadingKey = `${path}:${payload?.key ?? "global"}`;
+    setActionLoadingKey(loadingKey);
     try {
       const response = await fetch(path, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: body ? JSON.stringify(body) : undefined
+        body: payload ? JSON.stringify(payload) : undefined
       });
       await parseResponse(response);
       setMessage(`${label} realizado com sucesso.`);
@@ -86,13 +104,9 @@ export default function AdminUsersPage() {
       await loadUsers();
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : `Falha ao executar ${label}.`);
+    } finally {
+      setActionLoadingKey("");
     }
-  }
-
-  async function deleteUser(user: AdminUser) {
-    const userId = getUserIdentifier(user);
-    if (!window.confirm(`Tem certeza que deseja apagar ${user.player_name || "este usuário"}?`)) return;
-    await postAction("/api/admin/delete-user", "Usuário apagado", { userId });
   }
 
   useEffect(() => {
@@ -106,7 +120,7 @@ export default function AdminUsersPage() {
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Buscar por nome, user_id ou local_user_id"
+            placeholder="Buscar por nome, profile.id, user_id ou local_user_id"
             className="min-w-0 flex-1 rounded-2xl border border-navy/10 bg-parchment px-4 py-3 font-bold text-navy outline-none"
           />
           <button onClick={loadUsers} className="rounded-2xl bg-navy px-5 py-3 font-black text-white">
@@ -140,14 +154,18 @@ export default function AdminUsersPage() {
             <p className="rounded-2xl bg-parchment p-4 font-bold text-ink/60">Nenhum usuário encontrado.</p>
           ) : (
             filteredUsers.map((user) => {
-              const userId = getUserIdentifier(user);
+              const identity = getIdentityPayload(user);
+              const loadingSuffix = `:${identity.key}`;
+              const isActionLoading = actionLoadingKey.endsWith(loadingSuffix);
               return (
-                <article key={userId} className="rounded-2xl bg-parchment p-4">
+                <article key={identity.key} className="rounded-2xl bg-parchment p-4">
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                     <button type="button" onClick={() => setSelectedUser(user)} className="text-left">
                       <p className="text-lg font-black text-navy">{user.player_name || "Sem nome"}</p>
-                      <p className="mt-1 text-xs font-bold text-ink/50">local_user_id: {user.local_user_id || "sem local_user_id"}</p>
-                      <p className="text-xs font-bold text-ink/50">user_id: {user.user_id || "sem user_id"}</p>
+                      <p className="mt-1 text-xs font-bold text-ink/50">profile.id: {user.profile_id || user.id || "ID legado"}</p>
+                      <p className="text-xs font-bold text-ink/50">local_user_id: {user.local_user_id || "ID legado"}</p>
+                      <p className="text-xs font-bold text-ink/50">user_id: {user.user_id || "ID legado"}</p>
+                      <p className="mt-2 text-xs font-black uppercase tracking-wide text-gold">Ações por: {identity.keyType}</p>
                       <p className="mt-2 text-sm font-bold text-ink/65">
                         XP {user.total_xp ?? 0} · Semana {user.weekly_xp ?? 0} · Sequência {user.current_streak ?? 0} · Melhor {user.best_streak ?? 0}
                       </p>
@@ -156,16 +174,24 @@ export default function AdminUsersPage() {
                       </p>
                     </button>
                     <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                      <button onClick={() => postAction("/api/admin/reset-xp", "Reset de XP", { userId })} className="rounded-xl bg-white px-3 py-2 text-xs font-black text-navy">
+                      <button disabled={isActionLoading} onClick={() => postAction("/api/admin/reset-xp", "Reset de XP", user)} className="rounded-xl bg-white px-3 py-2 text-xs font-black text-navy disabled:opacity-50">
                         Reset XP
                       </button>
-                      <button onClick={() => postAction("/api/admin/reset-xp", "Reset semanal", { userId, weeklyOnly: true })} className="rounded-xl bg-white px-3 py-2 text-xs font-black text-navy">
+                      <button disabled={isActionLoading} onClick={() => postAction("/api/admin/reset-weekly", "Reset semanal", user)} className="rounded-xl bg-white px-3 py-2 text-xs font-black text-navy disabled:opacity-50">
                         Reset semanal
                       </button>
-                      <button onClick={() => postAction("/api/admin/reset-user", "Reset de progresso", { userId })} className="rounded-xl bg-white px-3 py-2 text-xs font-black text-navy">
+                      <button
+                        disabled={isActionLoading}
+                        onClick={() => postAction("/api/admin/reset-user", "Reset de progresso", user, "Tem certeza que deseja resetar o progresso deste usuário?")}
+                        className="rounded-xl bg-white px-3 py-2 text-xs font-black text-navy disabled:opacity-50"
+                      >
                         Reset progresso
                       </button>
-                      <button onClick={() => deleteUser(user)} className="rounded-xl bg-red-50 px-3 py-2 text-xs font-black text-red-700">
+                      <button
+                        disabled={isActionLoading}
+                        onClick={() => postAction("/api/admin/delete-user", "Usuário apagado", user, `Tem certeza que deseja apagar ${user.player_name || "este usuário"}?`)}
+                        className="rounded-xl bg-red-50 px-3 py-2 text-xs font-black text-red-700 disabled:opacity-50"
+                      >
                         Apagar
                       </button>
                     </div>
@@ -190,7 +216,7 @@ export default function AdminUsersPage() {
               </button>
             </div>
             <div className="mt-4 grid gap-2 sm:grid-cols-2">
-              {Object.entries(selectedUser).map(([key, value]) => (
+              {Object.entries({ ...selectedUser, admin_identity: JSON.stringify(getIdentityPayload(selectedUser)) }).map(([key, value]) => (
                 <div key={key} className="rounded-2xl bg-parchment p-3">
                   <p className="text-xs font-black uppercase tracking-wide text-gold">{key}</p>
                   <p className="mt-1 break-all text-sm font-bold text-navy">{String(value ?? "-")}</p>

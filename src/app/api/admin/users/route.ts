@@ -1,6 +1,7 @@
 import { adminSuccess, getAdminErrorResponse, requireAdminApi } from "@/lib/adminApi";
 
 type ProgressRow = {
+  id: string;
   user_id: string | null;
   local_user_id: string | null;
   player_name: string | null;
@@ -18,6 +19,7 @@ type ProgressRow = {
 };
 
 type ProfileRow = {
+  id: string;
   user_id: string | null;
   local_user_id: string | null;
   player_name: string | null;
@@ -38,8 +40,12 @@ type DayStatusRow = {
   word_completed: boolean | null;
 };
 
-function identity(row: { local_user_id?: string | null; user_id?: string | null; player_name?: string | null }) {
-  return row.local_user_id || row.user_id || row.player_name || "";
+function identity(row: { id?: string | null; local_user_id?: string | null; user_id?: string | null }) {
+  return row.local_user_id || row.user_id || row.id || "";
+}
+
+function relatedIdentity(row: { local_user_id?: string | null; user_id?: string | null }) {
+  return row.local_user_id || row.user_id || "";
 }
 
 function isCompleted(row: DayStatusRow) {
@@ -56,12 +62,12 @@ export async function GET(request: Request) {
     const [progressResult, profilesResult, statusResult] = await Promise.all([
       supabase
         .from("user_journey_progress")
-        .select("user_id, local_user_id, player_name, total_xp, weekly_xp, current_streak, best_streak, current_journey_day, completed_days, journey_start_date, last_access_date, last_completed_date, created_at, updated_at")
+        .select("id, user_id, local_user_id, player_name, total_xp, weekly_xp, current_streak, best_streak, current_journey_day, completed_days, journey_start_date, last_access_date, last_completed_date, created_at, updated_at")
         .order("updated_at", { ascending: false, nullsFirst: false })
         .limit(1000),
       supabase
         .from("profiles")
-        .select("user_id, local_user_id, player_name, total_xp, weekly_xp, current_streak, best_streak, created_at")
+        .select("id, user_id, local_user_id, player_name, total_xp, weekly_xp, current_streak, best_streak, created_at")
         .order("created_at", { ascending: false })
         .limit(1000),
       supabase
@@ -76,7 +82,7 @@ export async function GET(request: Request) {
 
     const completedByIdentity = new Map<string, { completed: number; highestDay: number }>();
     for (const row of (statusResult.data ?? []) as DayStatusRow[]) {
-      const key = identity(row);
+      const key = relatedIdentity(row);
       if (!key || !isCompleted(row)) continue;
       const current = completedByIdentity.get(key) ?? { completed: 0, highestDay: 0 };
       completedByIdentity.set(key, {
@@ -90,7 +96,8 @@ export async function GET(request: Request) {
       const key = identity(profile);
       if (!key) continue;
       byIdentity.set(key, {
-        id: key,
+        id: profile.id,
+        profile_id: profile.id,
         user_id: profile.user_id,
         local_user_id: profile.local_user_id,
         player_name: profile.player_name,
@@ -106,13 +113,17 @@ export async function GET(request: Request) {
     for (const progress of (progressResult.data ?? []) as ProgressRow[]) {
       const key = identity(progress);
       if (!key) continue;
-      const stats = completedByIdentity.get(key) ?? { completed: Number(progress.completed_days ?? 0), highestDay: 0 };
+      const relatedKey = relatedIdentity(progress);
+      const stats = (relatedKey ? completedByIdentity.get(relatedKey) : undefined) ?? { completed: Number(progress.completed_days ?? 0), highestDay: 0 };
+      const existing = byIdentity.get(key) ?? {};
       byIdentity.set(key, {
-        ...(byIdentity.get(key) ?? {}),
-        id: key,
-        user_id: progress.user_id,
-        local_user_id: progress.local_user_id,
-        player_name: progress.player_name,
+        ...existing,
+        id: String(existing.id ?? progress.id),
+        profile_id: existing.profile_id ?? null,
+        progress_id: progress.id,
+        user_id: progress.user_id ?? existing.user_id ?? null,
+        local_user_id: progress.local_user_id ?? existing.local_user_id ?? null,
+        player_name: progress.player_name ?? existing.player_name ?? null,
         total_xp: progress.total_xp ?? 0,
         weekly_xp: progress.weekly_xp ?? 0,
         current_streak: progress.current_streak ?? 0,
@@ -132,7 +143,12 @@ export async function GET(request: Request) {
     const users = Array.from(byIdentity.values())
       .filter((user) => {
         if (!search) return true;
-        return String(user.player_name ?? "").toLowerCase().includes(search) || String(user.local_user_id ?? user.user_id ?? "").toLowerCase().includes(search);
+        return (
+          String(user.player_name ?? "").toLowerCase().includes(search) ||
+          String(user.id ?? "").toLowerCase().includes(search) ||
+          String(user.profile_id ?? "").toLowerCase().includes(search) ||
+          String(user.local_user_id ?? user.user_id ?? "").toLowerCase().includes(search)
+        );
       })
       .sort((a, b) => Number(b.total_xp ?? 0) - Number(a.total_xp ?? 0));
 

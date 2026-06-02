@@ -4,10 +4,10 @@ import type { AdminUserIdentityInput } from "@/lib/adminUserIdentity";
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as AdminUserIdentityInput & { weeklyOnly?: boolean };
-    console.info("[Admin] Reset XP", body);
-    const resolved = await resetAdminUserXp(body, body.weeklyOnly === true);
-    return adminSuccess({ reset: body.weeklyOnly ? "weekly" : "all", resolved });
+    const body = (await request.json()) as AdminUserIdentityInput;
+    console.info("[Admin] Reset weekly ranking", body);
+    const resolved = await resetAdminUserXp(body, true);
+    return adminSuccess({ reset: "weekly", resolved });
   } catch (error) {
     return getAdminErrorResponse(error);
   }
