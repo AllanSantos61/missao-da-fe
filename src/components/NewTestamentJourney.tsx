@@ -43,6 +43,39 @@ function getReadingParagraphs(text?: string) {
     .filter(Boolean);
 }
 
+type DisplayVerse = {
+  key: string;
+  chapter: number;
+  verse: number;
+  text: string;
+};
+
+function stripLeadingVerseNumber(text: string) {
+  return text.replace(/^\s*(\d+)[.)\s:-]+/, "").trim();
+}
+
+function getDisplayVerses(journey: CurrentReadingState, bibleText: ReturnType<typeof useBibleApiReading>): DisplayVerse[] {
+  const apiVerses = Array.isArray(bibleText.reading?.verses) ? bibleText.reading.verses : [];
+  if (apiVerses.length) {
+    return apiVerses.map((verse) => ({
+      key: `${verse.chapter}-${verse.verse}`,
+      chapter: verse.chapter,
+      verse: verse.verse,
+      text: verse.text.trim()
+    }));
+  }
+
+  const paragraphs = getReadingParagraphs(bibleText.reading?.text);
+  const startVerse = journey.reading.verseStart ?? 1;
+
+  return paragraphs.map((paragraph, index) => ({
+    key: `fallback-${journey.reading.chapterStart}-${startVerse + index}`,
+    chapter: journey.reading.chapterStart,
+    verse: startVerse + index,
+    text: stripLeadingVerseNumber(paragraph)
+  }));
+}
+
 export function NewTestamentJourney({
   journey,
   savedResult,
@@ -67,10 +100,11 @@ export function NewTestamentJourney({
   const [readingProgress, setReadingProgress] = useState(0);
   const [selectedVerseKey, setSelectedVerseKey] = useState<string | null>(null);
   const [copiedVerseKey, setCopiedVerseKey] = useState<string | null>(null);
+  const [favoriteVerseKeys, setFavoriteVerseKeys] = useState<string[]>([]);
 
   const totalPercent = Math.min(
     100,
-    Math.round((journey.progress.completedReadings / journey.progress.totalReadings) * 100)
+    Number(((journey.progress.completedReadings / journey.progress.totalReadings) * 100).toFixed(1))
   );
   const completedAllAvailable = journey.progress.pendingCount === 0;
   const actionLabel = completedAllAvailable
@@ -82,8 +116,7 @@ export function NewTestamentJourney({
   const translationLabel = bibleText.reading?.translation
     ? bibleText.reading.translation.replace(/^almeida$/i, "Almeida")
     : "Almeida";
-  const fallbackParagraphs = useMemo(() => getReadingParagraphs(bibleText.reading?.text), [bibleText.reading?.text]);
-  const readingVerses = Array.isArray(bibleText.reading?.verses) ? bibleText.reading.verses : [];
+  const readingVerses = useMemo(() => getDisplayVerses(journey, bibleText), [bibleText, journey]);
   const canComplete = isCompleted || readingProgress >= 95;
 
   const updateReadingProgress = useCallback(() => {
@@ -133,6 +166,12 @@ export function NewTestamentJourney({
   function shareVerse(text: string) {
     const message = `${text}\n\n${journey.reading.reference}\nMissão da Fé`;
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
+  }
+
+  function toggleFavoriteVerse(key: string) {
+    setFavoriteVerseKeys((keys) =>
+      keys.includes(key) ? keys.filter((favoriteKey) => favoriteKey !== key) : [...keys, key]
+    );
   }
 
   const readerTheme = isDarkMode
@@ -250,15 +289,25 @@ export function NewTestamentJourney({
           </div>
         </div>
 
-        <header className="px-5 pb-4 pt-6 sm:px-7">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-gold">{translationLabel}</p>
-          <h3 className={`mt-2 text-3xl font-black leading-tight ${isDarkMode ? "text-white" : "text-navy"}`}>{chapterLabel}</h3>
-          <p className={`mt-2 text-sm font-black uppercase tracking-wide ${mutedText}`}>{journey.reading.reference}</p>
-          <h4 className="mt-4 text-xl font-black leading-tight">{journey.reading.title}</h4>
-          <div className={`mt-3 flex flex-wrap gap-2 text-xs font-black ${mutedText}`}>
-            <span className="rounded-full bg-current/10 px-3 py-1.5">{journey.reading.estimatedMinutes} min</span>
+        <header className="px-5 pb-5 pt-6 sm:px-7">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-gold">📖 Dia {journey.selectedDay} de 365</p>
+          <h3 className={`mt-3 text-3xl font-black leading-tight ${isDarkMode ? "text-white" : "text-navy"}`}>{chapterLabel}</h3>
+          <h4 className="mt-3 text-xl font-black leading-tight">{journey.reading.title}</h4>
+          <p className={`mt-2 text-sm font-black ${isDarkMode ? "text-gold" : "text-navy"}`}>{journey.reading.reference}</p>
+          <div className={`mt-4 flex flex-wrap gap-2 text-xs font-black ${mutedText}`}>
+            <span className="rounded-full bg-current/10 px-3 py-1.5">Tradução: {translationLabel}</span>
+            <span className="rounded-full bg-current/10 px-3 py-1.5">Tempo estimado: {journey.reading.estimatedMinutes} min</span>
             <span className="rounded-full bg-current/10 px-3 py-1.5">+{journey.reading.xpReward ?? readingXP} XP</span>
             <span className="rounded-full bg-current/10 px-3 py-1.5">Leitura {readingProgress}%</span>
+          </div>
+          <div className="mt-5">
+            <div className="flex items-center justify-between text-xs font-black uppercase tracking-[0.14em] text-gold">
+              <span>Novo Testamento</span>
+              <span>{totalPercent.toLocaleString("pt-BR")}% concluído</span>
+            </div>
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-current/10">
+              <div className="h-full rounded-full bg-gold" style={{ width: `${totalPercent}%` }} />
+            </div>
           </div>
         </header>
 
@@ -286,63 +335,66 @@ export function NewTestamentJourney({
               onScroll={updateReadingProgress}
               className="max-h-[68vh] overflow-y-auto px-5 pb-6 sm:px-7"
             >
-              {readingVerses.length ? (
-                <div className="mx-auto max-w-2xl space-y-1">
-                  {readingVerses.map((verse) => {
-                    const key = `${verse.chapter}-${verse.verse}`;
-                    const verseText = `${verse.chapter}:${verse.verse} ${verse.text.trim()}`;
-                    const selected = selectedVerseKey === key;
+              <div className="mx-auto max-w-2xl space-y-2">
+                {readingVerses.map((verse) => {
+                  const verseText = `${verse.chapter}:${verse.verse} ${verse.text.trim()}`;
+                  const selected = selectedVerseKey === verse.key;
+                  const favorite = favoriteVerseKeys.includes(verse.key);
 
-                    return (
-                      <div key={key} className="py-1">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedVerseKey(selected ? null : key)}
-                          className={`block w-full rounded-2xl px-3 py-2 text-left transition ${
-                            selected ? "bg-gold/20 ring-1 ring-gold/45" : "hover:bg-current/5"
-                          }`}
-                        >
-                          <span className="align-super text-xs font-black text-gold">{verse.verse}</span>
-                          <span
-                            className="ml-2 font-serif leading-[1.85]"
-                            style={{ fontSize: `${fontSize}px` }}
-                          >
-                            {verse.text.trim()}
-                          </span>
-                        </button>
-                        {selected ? (
-                          <div className="ml-3 mt-2 flex flex-wrap gap-2">
-                            <button
-                              onClick={() => copyVerse(verseText, key)}
-                              className="rounded-full bg-navy px-3 py-1.5 text-xs font-black text-white"
-                            >
-                              {copiedVerseKey === key ? "Copiado" : "Copiar versículo"}
-                            </button>
-                            <button
-                              onClick={() => shareVerse(verseText)}
-                              className="rounded-full bg-gold px-3 py-1.5 text-xs font-black text-navy"
-                            >
-                              Compartilhar
-                            </button>
-                          </div>
-                        ) : null}
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="mx-auto max-w-2xl space-y-5">
-                  {fallbackParagraphs.map((paragraph, index) => (
-                    <p
-                      key={`${paragraph.slice(0, 24)}-${index}`}
-                      className="font-serif leading-[1.9]"
-                      style={{ fontSize: `${fontSize}px` }}
+                  return (
+                    <div
+                      key={verse.key}
+                      className={`rounded-2xl border transition ${
+                        selected
+                          ? "border-gold/60 bg-gold/18"
+                          : isDarkMode
+                            ? "border-white/8 bg-white/[0.03]"
+                            : "border-navy/5 bg-white/55"
+                      }`}
                     >
-                      {paragraph}
-                    </p>
-                  ))}
-                </div>
-              )}
+                      <button
+                        type="button"
+                        onClick={() => setSelectedVerseKey(selected ? null : verse.key)}
+                        className="grid w-full grid-cols-[28px_1fr] gap-3 px-3 py-3 text-left sm:grid-cols-[34px_1fr] sm:px-4"
+                      >
+                        <span className="pt-1 text-right align-super text-[11px] font-black leading-none text-gold">
+                          {verse.verse}
+                        </span>
+                        <span
+                          className="font-serif leading-[1.95]"
+                          style={{ fontSize: `${fontSize}px` }}
+                        >
+                          {verse.text.trim()}
+                        </span>
+                      </button>
+                      {selected ? (
+                        <div className="flex flex-wrap gap-2 border-t border-current/10 px-4 py-3">
+                          <button
+                            onClick={() => copyVerse(verseText, verse.key)}
+                            className="rounded-full bg-navy px-3 py-1.5 text-xs font-black text-white"
+                          >
+                            {copiedVerseKey === verse.key ? "Copiado" : "Copiar"}
+                          </button>
+                          <button
+                            onClick={() => shareVerse(verseText)}
+                            className="rounded-full bg-gold px-3 py-1.5 text-xs font-black text-navy"
+                          >
+                            Compartilhar
+                          </button>
+                          <button
+                            onClick={() => toggleFavoriteVerse(verse.key)}
+                            className={`rounded-full px-3 py-1.5 text-xs font-black ${
+                              favorite ? "bg-faithGreen text-white" : "bg-current/10"
+                            }`}
+                          >
+                            {favorite ? "Favoritado" : "Favoritar"}
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
 
               <div className="mx-auto mt-8 max-w-2xl border-t border-current/10 pt-5">
                 {isCompleted ? (
