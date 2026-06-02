@@ -43,10 +43,12 @@ const defaultReminder: ReminderPreference = {
 };
 
 export function createInitialProgress(today = getTodayKey()): UserProgress {
+  const localUserId = createLocalUserId();
+
   return {
     activeDate: today,
-    anonymousUserId: createLocalUserId(),
-    localUserId: createLocalUserId(),
+    anonymousUserId: localUserId,
+    localUserId,
     playerName: "",
     onboardingCompleted: false,
     totalXP: 0,
@@ -83,6 +85,7 @@ function calculateWeeklyXP(dailyHistory: UserProgress["dailyHistory"], today = g
 export function resetDailyStateIfNeeded(progress: UserProgress): UserProgress {
   const today = getTodayKey();
   const storedHistory = progress.dailyHistory ?? {};
+  const resolvedLocalUserId = progress.localUserId || progress.anonymousUserId || createLocalUserId();
   const dailyHistory = {
     ...storedHistory,
     [today]: storedHistory[today] ?? createDayHistory(today)
@@ -90,8 +93,8 @@ export function resetDailyStateIfNeeded(progress: UserProgress): UserProgress {
 
   return {
     ...progress,
-    anonymousUserId: progress.anonymousUserId || createLocalUserId(),
-    localUserId: progress.localUserId || progress.anonymousUserId || createLocalUserId(),
+    localUserId: resolvedLocalUserId,
+    anonymousUserId: progress.anonymousUserId || resolvedLocalUserId,
     onboardingCompleted: Boolean(progress.onboardingCompleted),
     community: { ...emptyCommunity, ...(progress.community ?? {}) },
     reminder: { ...defaultReminder, ...(progress.reminder ?? {}) },

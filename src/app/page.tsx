@@ -85,7 +85,11 @@ export default function Home() {
     selectJourneyDay,
     completeReading,
     completeJourneyPart
-  } = useBibleJourney(progress?.anonymousUserId ?? "", progress?.playerName ?? "");
+  } = useBibleJourney(
+    progress?.localUserId || progress?.anonymousUserId || "",
+    progress?.playerName ?? "",
+    progress?.anonymousUserId
+  );
   const todayMissionState = useJourneyMissionState(journey, todayHistory);
 
   useEffect(() => {

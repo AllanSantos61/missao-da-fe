@@ -32,9 +32,10 @@ function saveLocalResult(result: PublicResult) {
 export function buildPublicResult(progress: UserProgress, todayHistory: DayHistory): PublicResult {
   const date = todayHistory.date || getTodayKey();
   const journeyScore = Number(todayHistory.results.gospel?.scoreLabel?.split("/")[0] ?? 1);
+  const userId = progress.localUserId || progress.anonymousUserId;
 
   return {
-    userId: progress.anonymousUserId,
+    userId,
     playerName: progress.playerName || "Peregrino",
     resultDate: date,
     journeyDay: safeJourneyDay(journeyScore),
@@ -46,7 +47,7 @@ export function buildPublicResult(progress: UserProgress, todayHistory: DayHisto
     wordSolved: Boolean(todayHistory.results.word?.word?.solved),
     dailyXp: todayHistory.xpEarned,
     streak: progress.currentStreak,
-    shareSlug: createSlug(progress.anonymousUserId, date)
+    shareSlug: createSlug(userId, date)
   };
 }
 

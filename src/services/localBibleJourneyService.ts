@@ -16,7 +16,7 @@ const STORAGE_KEY = "missaoDaFeBibleJourney365";
 const TOTAL_READINGS = TOTAL_JOURNEY_DAYS;
 export const readingXP = 40;
 
-type CompletedJourneyDay = {
+export type CompletedJourneyDay = {
   dayNumber: number;
   readingCompleted: boolean;
   quizCompleted: boolean;
@@ -27,6 +27,13 @@ type CompletedJourneyDay = {
   wordAttemptsHistory?: JourneyCalendarDay["wordAttemptsHistory"];
   wordResult?: JourneyCalendarDay["wordResult"];
   wordAttempts?: number;
+};
+
+export type LocalJourneySnapshot = {
+  exists: boolean;
+  key: string;
+  progress: LocalJourneyState["progressByPlayer"][string] | null;
+  completed: CompletedJourneyDay[];
 };
 
 type LocalJourneyState = {
@@ -67,7 +74,51 @@ function readState(): LocalJourneyState {
 
 function saveState(state: LocalJourneyState) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    console.warn("[App] local journey cache save failed.");
+  }
+}
+
+export function getLocalJourneySnapshot(userKeyInput: string): LocalJourneySnapshot {
+  const key = getPlayerKey(userKeyInput);
+  const state = readState();
+  const progress = state.progressByPlayer[key] ?? null;
+  const completed = state.completedByPlayer[key] ?? [];
+
+  return {
+    exists: Boolean(progress || completed.length),
+    key,
+    progress,
+    completed
+  };
+}
+
+export function saveLocalJourneySnapshot(
+  userKeyInput: string,
+  snapshot: {
+    journeyStartDate: string;
+    lastAccessDate?: string | null;
+    lastCompletedDate?: string | null;
+    currentStreak?: number;
+    bestStreak?: number;
+    totalXp?: number;
+    completed: CompletedJourneyDay[];
+  }
+) {
+  const key = getPlayerKey(userKeyInput);
+  const state = readState();
+  state.progressByPlayer[key] = {
+    journeyStartDate: snapshot.journeyStartDate,
+    lastAccessDate: snapshot.lastAccessDate ?? getTodayKey(),
+    lastCompletedDate: snapshot.lastCompletedDate ?? null,
+    currentStreak: Math.max(0, Number(snapshot.currentStreak ?? 0)),
+    bestStreak: Math.max(0, Number(snapshot.bestStreak ?? 0)),
+    totalXp: Math.max(0, Number(snapshot.totalXp ?? 0))
+  };
+  state.completedByPlayer[key] = snapshot.completed;
+  saveState(state);
 }
 
 function getReadingByDay(dayNumber: number): BibleReading {

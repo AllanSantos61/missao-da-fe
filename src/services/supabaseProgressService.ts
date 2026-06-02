@@ -35,6 +35,10 @@ const challengeTypeMap: Record<ChallengeId, string> = {
   word: "palavra"
 };
 
+function getPrimaryUserId(progress: Pick<UserProgress, "anonymousUserId" | "localUserId">) {
+  return progress.localUserId || progress.anonymousUserId;
+}
+
 function logSupabase(message: string, details?: unknown) {
   console.info(`[Supabase] ${message}`, details ?? "");
 }
@@ -76,7 +80,7 @@ export async function ensureUserProfile(progress: UserProgress): Promise<Profile
   if (!supabaseClient || !progress.playerName) return null;
 
   const payload = {
-    user_id: progress.anonymousUserId,
+    user_id: getPrimaryUserId(progress),
     local_user_id: progress.localUserId,
     player_name: progress.playerName,
     total_xp: progress.totalXP,
@@ -95,7 +99,7 @@ export async function ensureUserProfile(progress: UserProgress): Promise<Profile
       : null
   };
 
-  const existingProfile = await findProfileByUserId(progress.anonymousUserId, progress.playerName);
+  const existingProfile = await findProfileByUserId(getPrimaryUserId(progress), progress.playerName);
 
   if (existingProfile?.id) {
     const { error } = await supabaseClient.from("profiles").update(payload).eq("id", existingProfile.id);
@@ -142,9 +146,10 @@ async function upsertDailyResult(
   if (!supabaseClient) return;
 
   const playerName = progress.playerName;
+  const userId = getPrimaryUserId(progress);
   const challengeType = challengeTypeMap[challengeId];
   logSupabase("Saving challenge result", {
-    userId: progress.anonymousUserId,
+    userId: getPrimaryUserId(progress),
     playerName,
     challengeDate,
     challengeType,
@@ -154,7 +159,7 @@ async function upsertDailyResult(
   const existingResult = await supabaseClient
     .from("daily_results")
     .select("id")
-    .eq("player_name", playerName)
+    .eq("user_id", userId)
     .eq("challenge_date", challengeDate)
     .eq("challenge_type", challengeType)
     .order("completed_at", { ascending: false, nullsFirst: false })
@@ -166,7 +171,7 @@ async function upsertDailyResult(
   }
 
   const payload = {
-    user_id: progress.anonymousUserId,
+    user_id: userId,
     local_user_id: progress.localUserId,
     player_name: playerName,
     challenge_date: challengeDate,
@@ -193,7 +198,7 @@ async function upsertDailyResult(
 
   const { error } = await supabaseClient
     .from("daily_results")
-    .upsert(payload, { onConflict: "player_name,challenge_date,challenge_type" });
+    .insert(payload);
   if (error) {
     logSupabaseError("Insert failed", error);
     throw error;
@@ -259,10 +264,11 @@ export async function saveStandaloneWordResult(progress: UserProgress, result: D
 
   const challengeDate = getTodayKey();
   const challengeType = "palavra_standalone";
+  const userId = getPrimaryUserId(progress);
   const existingResult = await supabaseClient
     .from("daily_results")
     .select("id")
-    .eq("player_name", progress.playerName)
+    .eq("user_id", userId)
     .eq("challenge_date", challengeDate)
     .eq("challenge_type", challengeType)
     .order("completed_at", { ascending: false, nullsFirst: false })
@@ -271,7 +277,7 @@ export async function saveStandaloneWordResult(progress: UserProgress, result: D
   if (existingResult.error) throw existingResult.error;
 
   const payload = {
-    user_id: progress.anonymousUserId,
+    user_id: userId,
     local_user_id: progress.localUserId,
     player_name: progress.playerName,
     challenge_date: challengeDate,
@@ -334,7 +340,7 @@ export async function fetchWeeklyRanking(progress: UserProgress, filter: Ranking
       rank: index + 1,
       name: row.player_name,
       xp: Number(row.weekly_xp ?? 0),
-      isCurrentUser: Boolean(row.user_id && row.user_id === progress.anonymousUserId) || Boolean(currentPlayerName && row.player_name === currentPlayerName)
+      isCurrentUser: Boolean(row.user_id && row.user_id === getPrimaryUserId(progress)) || Boolean(currentPlayerName && row.player_name === currentPlayerName)
     }));
   }
 

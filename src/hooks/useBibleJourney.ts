@@ -17,7 +17,7 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string)
   ]);
 }
 
-export function useBibleJourney(userId: string, playerName: string) {
+export function useBibleJourney(userId: string, playerName: string, legacyUserId?: string) {
   const [journey, setJourney] = useState<CurrentReadingState | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isCompleting, setIsCompleting] = useState(false);
@@ -30,7 +30,7 @@ export function useBibleJourney(userId: string, playerName: string) {
     console.log("[App] Loading started");
     try {
       const state = await withTimeout(
-        getJourneyDay(safeUserId, safePlayerName, dayNumber),
+        getJourneyDay(safeUserId, safePlayerName, dayNumber, legacyUserId),
         LOAD_TIMEOUT_MS,
         "Journey loading timeout"
       );
@@ -44,14 +44,14 @@ export function useBibleJourney(userId: string, playerName: string) {
       }
     } catch (error) {
       console.log("[App] Supabase failed, using fallback", error);
-      const fallbackState = await localBibleJourneyService.getJourneyDay(safePlayerName, dayNumber);
+      const fallbackState = await localBibleJourneyService.getJourneyDay(safeUserId, dayNumber);
       setJourney(fallbackState);
       setFallbackNotice("Conexão online instável. Jornada local carregada com segurança.");
     } finally {
       setIsLoading(false);
       console.log("[App] Loading finished");
     }
-  }, [playerName, userId]);
+  }, [legacyUserId, playerName, userId]);
 
   useEffect(() => {
     loadJourney();
@@ -63,7 +63,7 @@ export function useBibleJourney(userId: string, playerName: string) {
     setIsCompleting(true);
     try {
       const state = await withTimeout(
-        completeJourneyDay(safeUserId, safePlayerName, dayNumber ?? journey?.selectedDay ?? 1),
+        completeJourneyDay(safeUserId, safePlayerName, dayNumber ?? journey?.selectedDay ?? 1, legacyUserId),
         LOAD_TIMEOUT_MS,
         "Journey completion timeout"
       );
@@ -71,14 +71,14 @@ export function useBibleJourney(userId: string, playerName: string) {
       return state;
     } catch (error) {
       console.log("[App] Supabase failed, using fallback", error);
-      const state = await localBibleJourneyService.completeJourneyDay(safePlayerName, dayNumber ?? journey?.selectedDay ?? 1);
+      const state = await localBibleJourneyService.completeJourneyDay(safeUserId, dayNumber ?? journey?.selectedDay ?? 1);
       setJourney(state);
       setFallbackNotice("Leitura salva localmente. Vamos sincronizar quando possível.");
       return state;
     } finally {
       setIsCompleting(false);
     }
-  }, [journey?.selectedDay, playerName, userId]);
+  }, [journey?.selectedDay, legacyUserId, playerName, userId]);
 
   return {
     journey,
@@ -94,7 +94,7 @@ export function useBibleJourney(userId: string, playerName: string) {
       setIsCompleting(true);
       try {
         const state = await withTimeout(
-          completeJourneyPart(safeUserId, safePlayerName, dayNumber, part, xp, result),
+          completeJourneyPart(safeUserId, safePlayerName, dayNumber, part, xp, result, legacyUserId),
           LOAD_TIMEOUT_MS,
           "Journey part completion timeout"
         );
@@ -102,7 +102,7 @@ export function useBibleJourney(userId: string, playerName: string) {
         return state;
       } catch (error) {
         console.log("[App] Supabase failed, using fallback", error);
-        const state = await localBibleJourneyService.completeJourneyPart(safePlayerName, dayNumber, part, xp, result);
+        const state = await localBibleJourneyService.completeJourneyPart(safeUserId, dayNumber, part, xp, result);
         setJourney(state);
         setFallbackNotice("Missão salva localmente. Vamos sincronizar quando possível.");
         return state;
