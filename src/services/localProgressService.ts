@@ -42,7 +42,7 @@ const defaultReminder: ReminderPreference = {
   customTime: "08:00"
 };
 
-function createInitialProgress(today = getTodayKey()): UserProgress {
+export function createInitialProgress(today = getTodayKey()): UserProgress {
   return {
     activeDate: today,
     anonymousUserId: createLocalUserId(),
@@ -82,9 +82,10 @@ function calculateWeeklyXP(dailyHistory: UserProgress["dailyHistory"], today = g
 
 export function resetDailyStateIfNeeded(progress: UserProgress): UserProgress {
   const today = getTodayKey();
+  const storedHistory = progress.dailyHistory ?? {};
   const dailyHistory = {
-    ...progress.dailyHistory,
-    [today]: progress.dailyHistory[today] ?? createDayHistory(today)
+    ...storedHistory,
+    [today]: storedHistory[today] ?? createDayHistory(today)
   };
 
   return {
@@ -105,7 +106,12 @@ export function getUserProgress(): UserProgress {
     return createInitialProgress();
   }
 
-  const stored = window.localStorage.getItem(STORAGE_KEY);
+  let stored: string | null = null;
+  try {
+    stored = window.localStorage.getItem(STORAGE_KEY);
+  } catch {
+    return createInitialProgress();
+  }
 
   if (!stored) {
     return createInitialProgress();
@@ -114,13 +120,23 @@ export function getUserProgress(): UserProgress {
   try {
     return resetDailyStateIfNeeded(JSON.parse(stored) as UserProgress);
   } catch {
-    window.localStorage.removeItem(LEGACY_STORAGE_KEY);
+    try {
+      window.localStorage.removeItem(STORAGE_KEY);
+      window.localStorage.removeItem(LEGACY_STORAGE_KEY);
+    } catch {
+      // Storage may be unavailable; a fresh in-memory state still keeps the app usable.
+    }
     return createInitialProgress();
   }
 }
 
 export function saveUserProgress(progress: UserProgress) {
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+  } catch {
+    console.warn("[App] localStorage save failed; keeping in-memory progress only.");
+  }
 }
 
 export function updatePlayerName(progress: UserProgress, playerName: string) {

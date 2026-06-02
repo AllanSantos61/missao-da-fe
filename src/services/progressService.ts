@@ -20,6 +20,10 @@ export function getUserProgress() {
   return localProgressService.getUserProgress();
 }
 
+export function getFallbackUserProgress() {
+  return localProgressService.createInitialProgress();
+}
+
 export function saveUserProgress(progress: UserProgress) {
   localProgressService.saveUserProgress(progress);
   syncInBackground(() => supabaseProgressService.syncProgress(progress));

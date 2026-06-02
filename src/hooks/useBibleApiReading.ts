@@ -21,10 +21,28 @@ export function useBibleApiReading(reading: BibleReading) {
 
     setState({ reading: null, isLoading: true });
 
-    getDailyReading(reading).then((apiReading) => {
-      if (!isActive) return;
-      setState({ reading: apiReading, isLoading: false });
-    });
+    async function loadReading() {
+      try {
+        const apiReading = await getDailyReading(reading);
+        if (!isActive) return;
+        setState({ reading: apiReading, isLoading: false });
+      } catch (error) {
+        if (!isActive) return;
+        setState({
+          reading: {
+            reference: reading.reference,
+            text: reading.content || "Texto bíblico indisponível no momento. Tente novamente em instantes.",
+            translation: "almeida",
+            verses: [],
+            source: "fallback",
+            errorMessage: error instanceof Error ? error.message : "Não foi possível carregar o texto bíblico."
+          },
+          isLoading: false
+        });
+      }
+    }
+
+    void loadReading();
 
     return () => {
       isActive = false;

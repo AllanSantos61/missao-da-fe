@@ -12,6 +12,7 @@ import {
   completeChallenge as completeChallengeInService,
   completeOnboarding as completeOnboardingInService,
   getUserProgress,
+  getFallbackUserProgress,
   hasCompletedChallengeToday,
   resetDailyStateIfNeeded,
   saveUserProgress,
@@ -23,11 +24,50 @@ import {
 
 export function useDailyProgress() {
   const [progress, setProgress] = useState<UserProgress | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [fallbackNotice, setFallbackNotice] = useState("");
 
   useEffect(() => {
-    const nextProgress = getUserProgress();
-    saveUserProgress(nextProgress);
-    setProgress(nextProgress);
+    let isMounted = true;
+    const timeout = window.setTimeout(() => {
+      if (!isMounted) return;
+      console.log("[App] Supabase failed, using fallback");
+      const fallbackProgress = getFallbackUserProgress();
+      setFallbackNotice("Conexão lenta. Usando progresso local por enquanto.");
+      setProgress(fallbackProgress);
+      setIsLoading(false);
+      console.log("[App] Loading finished");
+    }, 3000);
+
+    function loadProgress() {
+      console.log("[App] Loading started");
+      try {
+        const nextProgress = getUserProgress();
+        saveUserProgress(nextProgress);
+        if (!isMounted) return;
+        setProgress(nextProgress);
+        console.log("[App] Supabase success");
+      } catch (error) {
+        console.log("[App] Supabase failed, using fallback", error);
+        const fallbackProgress = getFallbackUserProgress();
+        if (!isMounted) return;
+        setFallbackNotice("Não foi possível carregar tudo online. Seu progresso local está ativo.");
+        setProgress(fallbackProgress);
+      } finally {
+        window.clearTimeout(timeout);
+        if (isMounted) {
+          setIsLoading(false);
+          console.log("[App] Loading finished");
+        }
+      }
+    }
+
+    loadProgress();
+
+    return () => {
+      isMounted = false;
+      window.clearTimeout(timeout);
+    };
   }, []);
 
   const todayHistory = useMemo(() => {
@@ -95,7 +135,8 @@ export function useDailyProgress() {
   return {
     progress,
     todayHistory,
-    isLoaded: Boolean(progress),
+    isLoaded: !isLoading && Boolean(progress),
+    fallbackNotice,
     refreshDay,
     completeChallenge,
     updatePlayerName,

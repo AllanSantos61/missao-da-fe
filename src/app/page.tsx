@@ -68,6 +68,7 @@ export default function Home() {
     progress,
     todayHistory,
     isLoaded,
+    fallbackNotice: progressFallbackNotice,
     refreshDay,
     completeChallenge,
     updatePlayerName,
@@ -80,6 +81,7 @@ export default function Home() {
     journey,
     isLoading: isJourneyLoading,
     isCompleting: isJourneyCompleting,
+    fallbackNotice: journeyFallbackNotice,
     selectJourneyDay,
     completeReading,
     completeJourneyPart
@@ -431,6 +433,12 @@ export default function Home() {
       />
 
       <div className="mx-auto mt-4 flex w-full max-w-3xl flex-col gap-4">
+        {progressFallbackNotice || journeyFallbackNotice ? (
+          <div className="rounded-2xl bg-gold/15 px-4 py-3 text-sm font-black leading-5 text-navy shadow-sm">
+            {progressFallbackNotice || journeyFallbackNotice}
+          </div>
+        ) : null}
+
         {!selectedChallenge ? (
           <>
             <section className="rounded-[2rem] bg-white p-5 text-center shadow-card">

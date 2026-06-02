@@ -193,7 +193,7 @@ export async function getJourneyDay(playerName: string, dayNumber?: number): Pro
   const requestedDay = Math.min(Math.max(dayNumber ?? progress.currentJourneyDay, 1), TOTAL_READINGS);
   const selectedDay = requestedDay > progress.availableJourneyDay ? progress.currentJourneyDay : requestedDay;
   const calendar = buildCalendar(progress, completedRows);
-  const mission = await getJourneyMission(selectedDay);
+  const mission = await getJourneyMission(selectedDay, { forceFallback: true });
 
   return {
     reading: {

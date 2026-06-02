@@ -127,12 +127,17 @@ function mapMission(row: JourneyDayRow, questions: JourneyQuizQuestion[]): Journ
 
 type GetJourneyMissionOptions = {
   allowFallback?: boolean;
+  forceFallback?: boolean;
 };
 
 export async function getJourneyMission(
   dayNumber: number,
   options: GetJourneyMissionOptions = { allowFallback: true }
 ): Promise<JourneyDayMission> {
+  if (options.forceFallback) {
+    return fallbackMission(dayNumber);
+  }
+
   if (!supabaseClient) {
     if (options.allowFallback === false) throw new Error("Supabase not configured.");
     return fallbackMission(dayNumber);
