@@ -9,10 +9,11 @@ import type {
   JourneyDayStatus
 } from "@/types/bibleJourney";
 import type { DailyChallengeResult } from "@/types/dailyProgress";
-import { addDays, getDaysElapsedInclusive } from "@/utils/bibleJourneyDate";
+import { addDays } from "@/utils/bibleJourneyDate";
 import { getTodayKey } from "@/utils/dateUtils";
+import { getDayStatus, getJourneyState, TOTAL_JOURNEY_DAYS } from "@/utils/journeyState";
 
-const TOTAL_READINGS = 365;
+const TOTAL_READINGS = TOTAL_JOURNEY_DAYS;
 const READING_XP = 40;
 
 function logJourney(message: string, details?: unknown) {
@@ -71,18 +72,19 @@ function getUserId(userId: string) {
   return userId.trim() || "anonymous";
 }
 
-function getAvailableJourneyDay(journeyStartDate: string) {
-  return Math.min(TOTAL_READINGS, Math.max(1, getDaysElapsedInclusive(journeyStartDate, getTodayKey())));
-}
-
 export function getJourneyDayStatus(
   dayNumber: number,
   completedDays: number[],
   availableJourneyDay: number
 ): JourneyDayStatus {
-  if (completedDays.includes(dayNumber)) return "completed";
-  if (dayNumber > availableJourneyDay) return "locked";
-  return dayNumber === availableJourneyDay ? "available" : "pending";
+  const pendingDays = Array.from({ length: availableJourneyDay }, (_, index) => index + 1).filter(
+    (availableDay) => !completedDays.includes(availableDay)
+  );
+  return getDayStatus(dayNumber, {
+    completedDays,
+    highestUnlockedDay: availableJourneyDay,
+    currentMissionDay: pendingDays[0] ?? availableJourneyDay
+  });
 }
 
 function buildProgress(playerName: string, row: JourneyProgressRow, completedRows: JourneyDayRow[]): BibleProgress {
@@ -96,15 +98,18 @@ function buildProgress(playerName: string, row: JourneyProgressRow, completedRow
       .filter(Boolean)
       .sort()
       .at(-1) ?? null;
-  const availableJourneyDay = getAvailableJourneyDay(row.journey_start_date);
-  const missedDays = Array.from({ length: availableJourneyDay }, (_, index) => index + 1).filter(
-    (dayNumber) => !completedDays.includes(dayNumber)
-  );
+  const journeyState = getJourneyState({
+    journeyStartDate: row.journey_start_date,
+    completedDays,
+    streak: row.current_streak ?? 0
+  });
+  const availableJourneyDay = journeyState.highestUnlockedDay;
+  const missedDays = journeyState.pendingDays;
 
   return {
     playerName,
     journeyStartDate: row.journey_start_date,
-    currentJourneyDay: missedDays[0] ?? availableJourneyDay,
+    currentJourneyDay: journeyState.currentMissionDay,
     availableJourneyDay,
     completedDays,
     missedDays,
@@ -122,6 +127,11 @@ function buildProgress(playerName: string, row: JourneyProgressRow, completedRow
 
 function buildCalendar(progress: BibleProgress, completedRows: JourneyDayRow[]): JourneyCalendarDay[] {
   const byDay = new Map(completedRows.map((row) => [row.day_number, row]));
+  const journeyState = getJourneyState({
+    journeyStartDate: progress.journeyStartDate,
+    completedDays: progress.completedDays,
+    streak: progress.currentStreak
+  });
 
   return Array.from({ length: TOTAL_READINGS }, (_, index) => {
     const dayNumber = index + 1;
@@ -136,13 +146,7 @@ function buildCalendar(progress: BibleProgress, completedRows: JourneyDayRow[]):
     const readingCompleted = Boolean(completed?.reading_completed || quizCompleted || wordCompleted);
     return {
       dayNumber,
-      status: isFullyCompleted
-        ? "completed"
-        : dayNumber > progress.availableJourneyDay
-          ? "locked"
-          : dayNumber === progress.currentJourneyDay
-            ? "available"
-            : "pending",
+      status: getDayStatus(dayNumber, journeyState),
       readingCompleted,
       quizCompleted,
       wordCompleted,
@@ -176,7 +180,11 @@ async function ensureJourneyProgress(userIdInput: string, playerName: string): P
   const today = getTodayKey();
   const existingRow = (existing.data?.[0] ?? null) as JourneyProgressRow | null;
   if (existingRow) {
-    const highestUnlockedDay = getAvailableJourneyDay(existingRow.journey_start_date);
+    const highestUnlockedDay = getJourneyState({
+      journeyStartDate: existingRow.journey_start_date,
+      completedDays: [],
+      streak: existingRow.current_streak ?? 0
+    }).highestUnlockedDay;
     logJourney("Progress found", {
       playerName,
       journeyStartDate: existingRow.journey_start_date,
@@ -424,7 +432,13 @@ export async function completeJourneyPart(
     const quizCompleted = part === "quiz" ? true : Boolean(currentStatus?.quiz_completed);
     const wordCompleted = part === "word" ? true : Boolean(currentStatus?.word_completed);
     const isDayCompleted = readingCompleted && quizCompleted && wordCompleted;
-    const status: JourneyDayStatus = isDayCompleted ? "completed" : dayNumber === state.progress.availableJourneyDay ? "available" : "pending";
+    const status: JourneyDayStatus = isDayCompleted
+      ? "completed"
+      : getDayStatus(dayNumber, {
+          completedDays: state.progress.completedDays,
+          highestUnlockedDay: state.progress.availableJourneyDay,
+          currentMissionDay: state.progress.currentJourneyDay
+        });
     const updatedCurrentStreak = isDayCompleted ? nextStreak : Number(progressRow.current_streak ?? 0);
     const updatedBestStreak = isDayCompleted
       ? Math.max(Number(progressRow.best_streak ?? 0), nextStreak)
@@ -488,6 +502,13 @@ export async function completeJourneyPart(
       quizCompleted,
       wordCompleted
     });
+    const nextCompletedDays = isDayCompleted
+      ? Array.from(new Set([...state.progress.completedDays, dayNumber])).sort((a, b) => a - b)
+      : state.progress.completedDays;
+    const nextPendingDays = Array.from({ length: state.progress.availableJourneyDay }, (_, index) => index + 1).filter(
+      (availableDay) => !nextCompletedDays.includes(availableDay)
+    );
+    const nextCurrentJourneyDay = nextPendingDays[0] ?? state.progress.availableJourneyDay;
 
     const progressUpdate = await supabaseClient
       .from("user_journey_progress")
@@ -497,9 +518,7 @@ export async function completeJourneyPart(
         total_xp: Number(progressRow.total_xp ?? 0) + xpEarned,
         weekly_xp: Number(progressRow.weekly_xp ?? 0) + xpEarned,
         completed_days: isDayCompleted ? state.progress.completedReadings + 1 : state.progress.completedReadings,
-        current_journey_day: isDayCompleted
-          ? Math.min(Math.max(...state.progress.completedDays, dayNumber) + 1, TOTAL_READINGS)
-          : state.progress.currentJourneyDay,
+        current_journey_day: nextCurrentJourneyDay,
         highest_unlocked_day: state.progress.availableJourneyDay,
         last_completed_date: isDayCompleted ? today : progressRow.last_completed_date,
         last_access_date: today,

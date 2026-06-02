@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CurrentReadingState } from "@/types/bibleJourney";
 import type { ChallengeId, DayHistory } from "@/types/dailyProgress";
+import { getJourneyState } from "@/utils/journeyState";
 
 export type MissionStepId = ChallengeId | "result";
 
@@ -13,6 +14,8 @@ export type TodayMissionState = {
   highestUnlockedDay: number;
   selectedDay: number;
   currentMissionDay: number;
+  nextAvailableDay: number | null;
+  nextUnlockAt: Date;
   journeyDay: number;
   completedDays: number[];
   pendingDays: number[];
@@ -51,13 +54,6 @@ function getTodayKey(date = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
-function getDaysSinceStart(startDateKey: string | null, todayKey: string) {
-  if (!startDateKey) return 0;
-  const start = new Date(`${startDateKey}T12:00:00`);
-  const today = new Date(`${todayKey}T12:00:00`);
-  return Math.max(0, Math.floor((today.getTime() - start.getTime()) / 86400000));
-}
-
 function formatCountdown(totalSeconds: number) {
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
@@ -70,6 +66,14 @@ function getSecondsUntilNextLocalMidnight() {
   const midnight = new Date(now);
   midnight.setHours(24, 0, 0, 0);
   return Math.max(0, Math.floor((midnight.getTime() - now.getTime()) / 1000));
+}
+
+function getCalendarCompletedDays(journey: CurrentReadingState | null) {
+  const completedFromCalendar = (journey?.calendar ?? [])
+    .filter((day) => day.readingCompleted && day.quizCompleted && day.wordCompleted)
+    .map((day) => day.dayNumber);
+
+  return Array.from(new Set([...(journey?.progress.completedDays ?? []), ...completedFromCalendar]));
 }
 
 function getPrimaryMissionAction(nextPendingStep: ChallengeId | null, isMissionCompleted: boolean) {
@@ -129,14 +133,17 @@ export function useJourneyMissionState(journey: CurrentReadingState | null, toda
   return useMemo(() => {
     const todayDate = getTodayKey();
     const journeyStartDate = journey?.progress.journeyStartDate ?? null;
-    const daysSinceStart = getDaysSinceStart(journeyStartDate, todayDate);
-    const highestUnlockedDay = journey?.progress.availableJourneyDay ?? Math.min(daysSinceStart + 1, 365);
-    const completedDays = journey?.progress.completedDays ?? [];
-    const calendar = journey?.calendar ?? [];
-    const pendingDays = Array.from({ length: highestUnlockedDay }, (_, index) => index + 1).filter(
-      (dayNumber) => !completedDays.includes(dayNumber)
-    );
-    const currentMissionDay = pendingDays[0] ?? highestUnlockedDay;
+    const journeyState = getJourneyState({
+      journeyStartDate,
+      completedDays: getCalendarCompletedDays(journey),
+      streak: journey?.progress.currentStreak ?? 0,
+      todayKey: todayDate
+    });
+    const daysSinceStart = journeyState.daysSinceStart;
+    const highestUnlockedDay = journeyState.highestUnlockedDay;
+    const completedDays = journeyState.completedDays;
+    const pendingDays = journeyState.pendingDays;
+    const currentMissionDay = journeyState.currentMissionDay;
     const selectedDay = journey?.selectedDay ?? currentMissionDay;
     const missionStatus = getMissionStatus(currentMissionDay);
     const readingCompleted = missionStatus.readingCompleted;
@@ -149,7 +156,7 @@ export function useJourneyMissionState(journey: CurrentReadingState | null, toda
         if (step === "quiz") return !quizCompleted;
         return !wordCompleted;
       }) ?? null;
-    const isMissionCompleted = readingCompleted && quizCompleted && wordCompleted;
+    const isMissionCompleted = journeyState.isTodayMissionCompleted || (readingCompleted && quizCompleted && wordCompleted);
     const currentStep: MissionStepId = isMissionCompleted ? "result" : nextPendingStep ?? "result";
     const availableDays = pendingDays;
     const lockedDays = Array.from({ length: 365 - highestUnlockedDay }, (_, index) => highestUnlockedDay + index + 1);
@@ -161,6 +168,8 @@ export function useJourneyMissionState(journey: CurrentReadingState | null, toda
       highestUnlockedDay,
       selectedDay,
       currentMissionDay,
+      nextAvailableDay: journeyState.nextAvailableDay,
+      nextUnlockAt: journeyState.nextUnlockAt,
       journeyDay: currentMissionDay,
       completedDays,
       pendingDays,

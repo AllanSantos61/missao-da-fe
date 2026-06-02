@@ -33,8 +33,9 @@ const missionSteps: Array<{ id: ChallengeId; label: string; description: string 
 const achievements = [
   { day: 7, title: "Primeira Semana" },
   { day: 30, title: "30 Dias" },
-  { day: 100, title: "100 Perguntas" },
-  { day: 40, title: "Evangelho de Mateus" },
+  { day: 50, title: "Caminho Firme" },
+  { day: 100, title: "Cem Dias de Fé" },
+  { day: 180, title: "Metade da Jornada" },
   { day: 365, title: "Novo Testamento Completo" }
 ];
 
@@ -44,6 +45,13 @@ function getJourneyAvatar(day: number) {
   if (day >= 100) return "🌳";
   if (day >= 30) return "🌿";
   return "🌱";
+}
+
+function formatDateBR(dateKey: string | null) {
+  if (!dateKey) return "Hoje";
+  const [year, month, day] = dateKey.split("-");
+  if (!year || !month || !day) return dateKey;
+  return `${day}/${month}/${year}`;
 }
 
 export default function Home() {
@@ -277,8 +285,11 @@ export default function Home() {
   const selectedResult = selectedChallenge ? todayHistory.results[selectedChallenge] : undefined;
   const selectedJourneyDay = journey?.calendar.find((day) => day.dayNumber === journey.selectedDay);
   const selectedMissionStatus = todayMissionState.getMissionStatus(journey?.selectedDay ?? todayMissionState.currentMissionDay);
-  const currentJourneyDay = journey?.progress.currentJourneyDay ?? 1;
+  const currentJourneyDay = todayMissionState.currentMissionDay;
   const avatar = getJourneyAvatar(currentJourneyDay);
+  const completedJourneyDays = todayMissionState.completedDays.length;
+  const remainingJourneyDays = Math.max(0, 365 - completedJourneyDays);
+  const walkingDays = todayMissionState.daysSinceStart + 1;
   const journeyQuizData = journey?.mission
     ? {
         title: `Quiz do Dia ${journey.selectedDay}`,
@@ -431,7 +442,9 @@ export default function Home() {
               </div>
               <p className="mt-5 text-xs font-black uppercase tracking-[0.2em] text-gold">Jornada da Fé</p>
               <h1 className="mt-2 text-4xl font-black leading-tight text-navy">
-                Dia {todayMissionState.journeyDay} de 365{todayMissionState.isMissionCompleted ? " concluído" : ""}
+                {todayMissionState.isMissionCompleted
+                  ? `Dia ${todayMissionState.journeyDay} concluído`
+                  : `Dia ${todayMissionState.journeyDay} de 365`}
               </h1>
               <p className="mt-3 text-lg font-black leading-7 text-ink">
                 {todayMissionState.isMissionCompleted
@@ -467,10 +480,18 @@ export default function Home() {
 
             <section className="rounded-[1.75rem] bg-navy p-4 text-white shadow-soft">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-gold">Sua Jornada</p>
+              <h2 className="mt-1 text-2xl font-black">📅 Sua Jornada</h2>
+              <p className="mt-2 text-sm font-bold leading-6 text-white/75">
+                Iniciada há {walkingDays} {walkingDays === 1 ? "dia" : "dias"}.
+              </p>
               <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
                 <div className="rounded-2xl bg-white/10 p-3">
+                  <p className="text-white/60">📅 Início da jornada</p>
+                  <p className="font-black">{formatDateBR(todayMissionState.journeyStartDate)}</p>
+                </div>
+                <div className="rounded-2xl bg-white/10 p-3">
                   <p className="text-white/60">📖 Dia atual</p>
-                  <p className="font-black">{todayMissionState.journeyDay}/365</p>
+                  <p className="font-black">{todayMissionState.currentMissionDay}/365</p>
                 </div>
                 <div className="rounded-2xl bg-white/10 p-3">
                   <p className="text-white/60">🔥 Sequência</p>
@@ -481,12 +502,16 @@ export default function Home() {
                   <p className="font-black">{progress.totalXP}</p>
                 </div>
                 <div className="rounded-2xl bg-white/10 p-3">
-                  <p className="text-white/60">🏆 Ranking</p>
-                  <p className="font-black">{progress.weeklyXP > 0 ? "#1" : "Começando"}</p>
+                  <p className="text-white/60">📖 Dias concluídos</p>
+                  <p className="font-black">{completedJourneyDays}/365</p>
+                </div>
+                <div className="rounded-2xl bg-white/10 p-3">
+                  <p className="text-white/60">🎯 Dias restantes</p>
+                  <p className="font-black">{remainingJourneyDays}</p>
                 </div>
               </div>
               <p className="mt-3 text-sm font-bold leading-6 text-white/76">
-                Você está construindo um hábito diário de leitura.
+                Você entende onde começou, onde está e quanto falta para concluir todo o Novo Testamento.
               </p>
             </section>
 
@@ -565,7 +590,12 @@ export default function Home() {
               <section className="space-y-3">
                 <div className="rounded-[1.75rem] bg-white p-5 shadow-card">
                   <p className="text-xs font-black uppercase tracking-[0.18em] text-gold">Sua Jornada</p>
-                  <h2 className="mt-1 text-2xl font-black text-navy">Dia {journey.progress.currentJourneyDay} de 365</h2>
+                  <h2 className="mt-1 text-2xl font-black text-navy">
+                    Dia {todayMissionState.currentMissionDay} de 365
+                  </h2>
+                  <p className="mt-2 text-sm font-bold leading-6 text-ink/62">
+                    Início: {formatDateBR(todayMissionState.journeyStartDate)} · Concluídos: {completedJourneyDays}/365
+                  </p>
                 </div>
                 <JourneyCalendar365
                   days={journey.calendar}
@@ -625,7 +655,7 @@ export default function Home() {
               <p className="text-xl font-black text-navy">Compartilhe sua jornada</p>
               <div className="mt-3 rounded-2xl bg-parchment p-4 text-sm font-bold leading-7 text-navy">
                 <p>🙏 Missão da Fé</p>
-                <p>📖 Dia {journey?.progress.currentJourneyDay ?? 1}/365</p>
+                <p>📖 Dia {todayMissionState.currentMissionDay}/365</p>
                 <p>🧠 Quiz {todayHistory.results.quiz?.quiz?.score ?? 0}/3</p>
                 <p>✝️ Palavra {todayHistory.results.word?.word?.attempts ?? 0}/6</p>
                 <p>🔥 Sequência {progress.currentStreak} dias</p>

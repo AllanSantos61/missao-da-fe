@@ -8,11 +8,12 @@ import type {
   JourneyDayStatus
 } from "@/types/bibleJourney";
 import type { DailyChallengeResult } from "@/types/dailyProgress";
-import { addDays, getDaysElapsedInclusive } from "@/utils/bibleJourneyDate";
+import { addDays } from "@/utils/bibleJourneyDate";
 import { getTodayKey } from "@/utils/dateUtils";
+import { getDayStatus, getJourneyState, TOTAL_JOURNEY_DAYS } from "@/utils/journeyState";
 
 const STORAGE_KEY = "missaoDaFeBibleJourney365";
-const TOTAL_READINGS = 365;
+const TOTAL_READINGS = TOTAL_JOURNEY_DAYS;
 export const readingXP = 40;
 
 type CompletedJourneyDay = {
@@ -83,18 +84,19 @@ function getReadingByDay(dayNumber: number): BibleReading {
   };
 }
 
-function getAvailableJourneyDay(journeyStartDate: string) {
-  return Math.min(TOTAL_READINGS, Math.max(1, getDaysElapsedInclusive(journeyStartDate, getTodayKey())));
-}
-
 export function getJourneyDayStatus(
   dayNumber: number,
   completedDays: number[],
   availableJourneyDay: number
 ): JourneyDayStatus {
-  if (completedDays.includes(dayNumber)) return "completed";
-  if (dayNumber > availableJourneyDay) return "locked";
-  return dayNumber === availableJourneyDay ? "available" : "pending";
+  const pendingDays = Array.from({ length: availableJourneyDay }, (_, index) => index + 1).filter(
+    (availableDay) => !completedDays.includes(availableDay)
+  );
+  return getDayStatus(dayNumber, {
+    completedDays,
+    highestUnlockedDay: availableJourneyDay,
+    currentMissionDay: pendingDays[0] ?? availableJourneyDay
+  });
 }
 
 function buildProgress(playerName: string, state: LocalJourneyState): BibleProgress {
@@ -119,16 +121,19 @@ function buildProgress(playerName: string, state: LocalJourneyState): BibleProgr
     .filter((day) => day.readingCompleted && day.quizCompleted && day.wordCompleted)
     .map((day) => day.dayNumber)
     .sort((a, b) => a - b);
-  const availableJourneyDay = getAvailableJourneyDay(base.journeyStartDate);
-  const missedDays = Array.from({ length: availableJourneyDay }, (_, index) => index + 1).filter(
-    (dayNumber) => !completedDays.includes(dayNumber)
-  );
+  const journeyState = getJourneyState({
+    journeyStartDate: base.journeyStartDate,
+    completedDays,
+    streak: base.currentStreak
+  });
+  const availableJourneyDay = journeyState.highestUnlockedDay;
+  const missedDays = journeyState.pendingDays;
   const availableDays = missedDays;
 
   return {
     playerName: playerKey,
     journeyStartDate: base.journeyStartDate,
-    currentJourneyDay: missedDays[0] ?? availableJourneyDay,
+    currentJourneyDay: journeyState.currentMissionDay,
     availableJourneyDay,
     completedDays,
     missedDays,
@@ -146,6 +151,11 @@ function buildProgress(playerName: string, state: LocalJourneyState): BibleProgr
 
 function buildCalendar(progress: BibleProgress, completedRows: CompletedJourneyDay[]): JourneyCalendarDay[] {
   const byDay = new Map(completedRows.map((row) => [row.dayNumber, row]));
+  const journeyState = getJourneyState({
+    journeyStartDate: progress.journeyStartDate,
+    completedDays: progress.completedDays,
+    streak: progress.currentStreak
+  });
 
   return Array.from({ length: TOTAL_READINGS }, (_, index) => {
     const dayNumber = index + 1;
@@ -160,13 +170,7 @@ function buildCalendar(progress: BibleProgress, completedRows: CompletedJourneyD
     const readingCompleted = Boolean(completed?.readingCompleted || quizCompleted || wordCompleted);
     return {
       dayNumber,
-      status: isFullyCompleted
-        ? "completed"
-        : dayNumber > progress.availableJourneyDay
-          ? "locked"
-          : dayNumber === progress.currentJourneyDay
-            ? "available"
-            : "pending",
+      status: getDayStatus(dayNumber, journeyState),
       readingCompleted,
       quizCompleted,
       wordCompleted,
@@ -275,7 +279,13 @@ export async function completeJourneyPart(
       readingCompleted,
       quizCompleted,
       wordCompleted,
-      status: isDayCompleted ? "completed" : dayNumber === progress.availableJourneyDay ? "available" : "pending",
+      status: isDayCompleted
+        ? "completed"
+        : getDayStatus(dayNumber, {
+            completedDays: progress.completedDays,
+            highestUnlockedDay: progress.availableJourneyDay,
+            currentMissionDay: progress.currentJourneyDay
+          }),
       completedDate: isDayCompleted ? today : existing?.completedDate ?? "",
       xpEarned: Number(existing?.xpEarned ?? 0) + xpEarned,
       wordAttemptsHistory: part === "word" ? result?.word?.attemptsHistory ?? existing?.wordAttemptsHistory ?? [] : existing?.wordAttemptsHistory,
