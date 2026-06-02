@@ -1,5 +1,6 @@
 import { ImageResponse } from "next/og";
 import { createClient } from "@supabase/supabase-js";
+import { formatDias } from "@/utils/pluralize";
 
 export const runtime = "edge";
 export const alt = "Resultado da Missão da Fé";
@@ -92,7 +93,7 @@ export default async function Image({ params }: { params: { slug: string } }) {
             {playerName} está no Dia {day} de 365
           </div>
           <div style={{ display: "flex", gap: 20 }}>
-            <div style={pillStyle}>🔥 Sequência: {streak} dias</div>
+            <div style={pillStyle}>🔥 Sequência: {formatDias(streak)}</div>
             <div style={pillStyle}>⭐ XP: {xp}</div>
             <div style={pillStyle}>📖 10 min por dia</div>
           </div>

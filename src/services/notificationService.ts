@@ -39,7 +39,7 @@ export function scheduleLocalReminderPlaceholder(reminder: ReminderPreference) {
   return {
     supported: canUseNotifications(),
     message: reminder.enabled
-      ? "Sua missão de hoje está esperando por você 🙏"
+      ? "Receba um lembrete diário para manter sua caminhada."
       : "Em breve você poderá receber lembretes automáticos."
   };
 }

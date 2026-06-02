@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminShell } from "@/components/admin/AdminShell";
+import { formatDias, formatUnit } from "@/utils/pluralize";
 
 type QuestionRow = {
   id: string;
@@ -67,9 +68,9 @@ export default function AdminContentPage() {
   const incompleteSummary = useMemo(() => {
     if (!diagnostics) return "";
     const parts = [
-      diagnostics.daysWithLessThan3Questions.length ? `${diagnostics.daysWithLessThan3Questions.length} dia(s) com menos de 3 perguntas` : "",
-      diagnostics.daysWithoutWord.length ? `${diagnostics.daysWithoutWord.length} dia(s) sem palavra` : "",
-      diagnostics.daysWithoutReference.length ? `${diagnostics.daysWithoutReference.length} dia(s) sem referência` : ""
+      diagnostics.daysWithLessThan3Questions.length ? `${formatDias(diagnostics.daysWithLessThan3Questions.length)} com menos de 3 perguntas` : "",
+      diagnostics.daysWithoutWord.length ? `${formatDias(diagnostics.daysWithoutWord.length)} sem palavra` : "",
+      diagnostics.daysWithoutReference.length ? `${formatDias(diagnostics.daysWithoutReference.length)} sem referência` : ""
     ].filter(Boolean);
     return parts.length ? parts.join(" · ") : "0 dias incompletos";
   }, [diagnostics]);
@@ -196,7 +197,7 @@ export default function AdminContentPage() {
         <div className="mb-4 flex items-center justify-between">
           <div>
             <h2 className="text-xl font-black text-navy">Jornada da Fé</h2>
-            <p className="text-sm font-bold text-ink/55">{days.length} dia(s) exibido(s)</p>
+            <p className="text-sm font-bold text-ink/55">{formatUnit(days.length, "dia exibido", "dias exibidos")}</p>
           </div>
           {isLoading ? <span className="text-sm font-bold text-ink/55">Carregando...</span> : null}
         </div>

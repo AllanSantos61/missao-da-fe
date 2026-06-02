@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { clearMissionFaithLocalData, getSyncDiagnostics, type ClientSyncDiagnostics } from "@/services/clientStorageSync";
 import { resolveAdminUserKey } from "@/lib/adminUserIdentity";
+import { formatUnit } from "@/utils/pluralize";
 
 type AdminUser = {
   id: string;
@@ -196,7 +197,7 @@ export default function AdminUsersPage() {
         <div className="mb-4 flex items-center justify-between">
           <div>
             <h2 className="text-xl font-black text-navy">Lista de usuários</h2>
-            <p className="text-sm font-bold text-ink/55">{filteredUsers.length} usuário(s) encontrado(s)</p>
+            <p className="text-sm font-bold text-ink/55">{formatUnit(filteredUsers.length, "usuário encontrado", "usuários encontrados")}</p>
           </div>
           {isLoading ? <span className="text-sm font-bold text-ink/55">Carregando...</span> : null}
         </div>
