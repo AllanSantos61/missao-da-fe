@@ -19,14 +19,14 @@ const periods: Array<{ value: ReminderPeriod; label: string }> = [
 
 export function ReminderCard({ progress, onSave }: ReminderCardProps) {
   const [reminder, setReminder] = useState(progress.reminder);
-  const [message, setMessage] = useState("Sua missão de hoje está esperando por você 🙏");
+  const [message, setMessage] = useState("Receba um lembrete diário para manter sua caminhada.");
 
   async function saveReminder() {
     const nextReminder = { ...reminder, enabled: true };
     onSave(nextReminder);
     scheduleLocalReminderPlaceholder(nextReminder);
     const permission = await requestNotificationPermission();
-    setMessage(permission === "granted" ? "Lembrete preparado neste dispositivo." : "Lembrete salvo no app.");
+    setMessage(permission === "granted" ? "Lembrete preparado." : "Lembrete salvo.");
     void trackEvent({
       eventName: "reminder_saved",
       userId: progress.anonymousUserId,
@@ -43,7 +43,7 @@ export function ReminderCard({ progress, onSave }: ReminderCardProps) {
           <p className="mt-1 text-sm font-bold leading-5 text-ink/65">{message}</p>
         </div>
         <button onClick={saveReminder} className="shrink-0 rounded-full bg-gold px-4 py-2 text-xs font-black text-navy">
-          Salvar
+          Salvar lembrete
         </button>
       </div>
       <div className="mt-3 grid grid-cols-4 gap-1.5">

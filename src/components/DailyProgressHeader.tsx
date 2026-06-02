@@ -1,4 +1,5 @@
 import type { DayHistory, UserProgress } from "@/types/dailyProgress";
+import { formatDias } from "@/utils/pluralize";
 
 type DailyProgressHeaderProps = {
   progress: UserProgress;
@@ -38,11 +39,11 @@ export function DailyProgressHeader({ progress, todayHistory }: DailyProgressHea
         </div>
         <div className="rounded-2xl bg-white/10 p-3">
           <p className="text-xs text-white/65">Sequência</p>
-          <p className="text-lg font-black">{progress.currentStreak}</p>
+          <p className="text-lg font-black">{formatDias(progress.currentStreak)}</p>
         </div>
         <div className="rounded-2xl bg-white/10 p-3">
           <p className="text-xs text-white/65">Recorde</p>
-          <p className="text-lg font-black">{progress.bestStreak}</p>
+          <p className="text-lg font-black">{formatDias(progress.bestStreak)}</p>
         </div>
       </div>
     </header>

@@ -1,4 +1,5 @@
 import type { BibleProgress, JourneyCalendarDay } from "@/types/bibleJourney";
+import { formatDias } from "@/utils/pluralize";
 
 type XPJourneyCalendarProps = {
   calendar: JourneyCalendarDay[];
@@ -21,8 +22,8 @@ export function XPJourneyCalendar({ calendar, progress }: XPJourneyCalendarProps
           <p className="mt-1 text-xs font-semibold text-ink/60">Primeiros 30 dias</p>
         </div>
         <div className="text-right text-xs font-bold text-ink/60">
-          <p>Sequência: {progress.currentStreak}</p>
-          <p>Recorde: {progress.bestStreak}</p>
+          <p>Sequência: {formatDias(progress.currentStreak)}</p>
+          <p>Recorde: {formatDias(progress.bestStreak)}</p>
         </div>
       </div>
 

@@ -23,6 +23,7 @@ import { useJourneyMissionState } from "@/hooks/useJourneyMissionState";
 import { trackEvent } from "@/services/analyticsService";
 import { saveStandaloneWordResult } from "@/services/supabaseProgressService";
 import type { ChallengeId, DailyChallengeResult, UserProgress } from "@/types/dailyProgress";
+import { formatDias } from "@/utils/pluralize";
 import { buildStandaloneWordShareUrl } from "@/utils/share";
 
 type HomeTab = "home" | "journey" | "achievements" | "profile";
@@ -39,7 +40,7 @@ const achievements = [
   { day: 30, title: "30 Dias" },
   { day: 50, title: "Caminho Firme" },
   { day: 100, title: "Cem Dias de Fé" },
-  { day: 40, title: "Mateus concluído" },
+  { day: 40, title: "Evangelho de Mateus concluído" },
   { day: 135, title: "Evangelhos concluídos" },
   { day: 180, title: "Metade da Jornada" },
   { day: 365, title: "Novo Testamento Completo" }
@@ -342,11 +343,11 @@ export default function Home() {
   const selectedResult = selectedChallenge ? todayHistory.results[selectedChallenge] : undefined;
   const hasSyncError = isOnline && syncStatus === "error" && syncErrorActive && journey?.source !== "supabase";
   const statusBanner = !isOnline
-    ? "⚠️ Você está sem conexão com a internet. Sua jornada continuará funcionando normalmente e seu progresso será sincronizado quando a conexão voltar."
+    ? "⚠️ Você está sem conexão. Seu progresso será sincronizado quando a internet voltar."
     : isJourneyCompleting || syncStatus === "syncing" || pendingSync
       ? "🔄 Sincronizando seu progresso..."
       : hasSyncError
-        ? "⚠️ Não foi possível sincronizar seus dados agora. Seu progresso continua salvo neste dispositivo."
+        ? "⚠️ Não foi possível sincronizar seus dados agora."
         : "";
 
   const selectedJourneyDay = journey?.calendar.find((day) => day.dayNumber === journey.selectedDay);
@@ -532,7 +533,7 @@ export default function Home() {
                 </button>
               ) : (
                 <p className="mt-5 rounded-2xl bg-parchment px-4 py-3 text-sm font-black text-navy">
-                  Próxima missão em: {todayMissionState.nextMissionCountdown}
+                  Nova missão disponível em: {todayMissionState.nextMissionCountdown}
                 </p>
               )}
               {homeNotice ? (
@@ -576,7 +577,7 @@ export default function Home() {
 
             <section className="grid grid-cols-3 gap-2">
               <MiniStat label="XP total" value={progress.totalXP} />
-              <MiniStat label="Sequência" value={`${journey?.progress.currentStreak ?? progress.currentStreak}d`} />
+              <MiniStat label="Sequência" value={formatDias(journey?.progress.currentStreak ?? progress.currentStreak)} />
               <button onClick={openRanking} className="rounded-2xl bg-navy p-3 text-left text-white shadow-card">
                 <p className="text-[11px] font-black uppercase tracking-wide text-gold">Ranking</p>
                 <p className="mt-1 text-lg font-black">{progress.weeklyXP > 0 ? `${progress.weeklyXP} XP` : "Entrar"}</p>
@@ -592,13 +593,13 @@ export default function Home() {
               <h2 className="mt-1 text-2xl font-black">📅 Dia {todayMissionState.currentMissionDay} de 365</h2>
               <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
                 <JourneyMetric label="Início" value={formatDateBR(todayMissionState.journeyStartDate)} />
-                <JourneyMetric label="Caminhada" value={`${walkingDays} dias`} />
-                <JourneyMetric label="Concluídos" value={`${completedJourneyDays}/365`} />
-                <JourneyMetric label="Restantes" value={remainingJourneyDays} />
+                <JourneyMetric label="Caminhada" value={formatDias(walkingDays)} />
+                <JourneyMetric label="Dias concluídos" value={`${completedJourneyDays}/365`} />
+                <JourneyMetric label="Dias restantes" value={remainingJourneyDays} />
               </div>
               <div className="mt-4">
                 <div className="flex justify-between text-xs font-black text-white/70">
-                  <span>Novo Testamento</span>
+                  <span>Progresso do Novo Testamento</span>
                   <span>{Math.max(1, Math.round((completedJourneyDays / 365) * 100))}%</span>
                 </div>
                 <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/15">
@@ -667,11 +668,11 @@ export default function Home() {
               <p className="text-xs font-black uppercase tracking-[0.18em] text-gold">Minha Jornada</p>
               <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
                 <JourneyMetric label="Iniciou em" value={formatDateBR(todayMissionState.journeyStartDate)} />
-                <JourneyMetric label="Caminhando há" value={`${walkingDays} dias`} />
-                <JourneyMetric label="Concluídos" value={`${completedJourneyDays}/365`} />
-                <JourneyMetric label="Novo Testamento" value={`${Math.max(1, Math.round((completedJourneyDays / 365) * 100))}%`} />
+                <JourneyMetric label="Caminhando há" value={formatDias(walkingDays)} />
+                <JourneyMetric label="Dias concluídos" value={`${completedJourneyDays}/365`} />
+                <JourneyMetric label="Progresso do Novo Testamento" value={`${Math.max(1, Math.round((completedJourneyDays / 365) * 100))}%`} />
                 <JourneyMetric label="XP total" value={progress.totalXP} />
-                <JourneyMetric label="Maior sequência" value={`${progress.bestStreak} dias`} />
+                <JourneyMetric label="Maior sequência" value={formatDias(progress.bestStreak)} />
               </div>
             </section>
 
@@ -682,7 +683,11 @@ export default function Home() {
               </button>
               <button onClick={() => setShowCommunityModal(true)} className="rounded-2xl bg-white p-4 text-left font-black text-navy shadow-card">
                 ⛪ Minha comunidade
-                <span className="mt-1 block text-sm text-ink/58">Cidade, paróquia e grupo</span>
+                <span className="mt-1 block text-sm text-ink/58">
+                  {progress.community.city || progress.community.parish || progress.community.groupName || progress.community.diocese
+                    ? [progress.community.city, progress.community.parish, progress.community.groupName, progress.community.diocese].filter(Boolean).join(" · ")
+                    : "Nenhuma comunidade configurada"}
+                </span>
               </button>
             </section>
 
@@ -693,7 +698,7 @@ export default function Home() {
               <div className="mt-3 rounded-2xl bg-parchment p-4 text-sm font-bold leading-7 text-navy">
                 <p>🙏 Missão da Fé</p>
                 <p>📖 Dia {todayMissionState.currentMissionDay}/365</p>
-                <p>🔥 Sequência {progress.currentStreak} dias</p>
+                <p>🔥 Sequência: {formatDias(progress.currentStreak)}</p>
                 <p>⭐ {progress.totalXP} XP</p>
               </div>
               <div className="mt-4">
@@ -703,12 +708,12 @@ export default function Home() {
 
             <section className="grid gap-3 sm:grid-cols-2">
               <div className="rounded-2xl bg-white p-4 shadow-card">
-                <p className="font-black text-navy">Tema</p>
-                <p className="mt-1 text-sm font-bold text-ink/58">Claro, com modo escuro na leitura.</p>
+                <p className="font-black text-navy">Aparência</p>
+                <p className="mt-1 text-sm font-bold text-ink/58">Escolha entre modo claro e escuro.</p>
               </div>
               <div className="rounded-2xl bg-white p-4 shadow-card">
-                <p className="font-black text-navy">Fonte</p>
-                <p className="mt-1 text-sm font-bold text-ink/58">Ajustável na tela de leitura.</p>
+                <p className="font-black text-navy">Tamanho da fonte</p>
+                <p className="mt-1 text-sm font-bold text-ink/58">Personalize o tamanho da leitura.</p>
               </div>
               <PwaInstallButton progress={progress} />
             </section>

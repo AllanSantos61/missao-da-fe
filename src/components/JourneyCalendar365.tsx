@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { JourneyCalendarDay } from "@/types/bibleJourney";
 import { journeyMilestones } from "@/utils/journeyState";
+import { formatDias } from "@/utils/pluralize";
 
 type JourneyCalendar365Props = {
   days: JourneyCalendarDay[];
@@ -38,9 +39,9 @@ export function JourneyCalendar365({ days, selectedDay, onSelectDay, onMilestone
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-sm font-black text-navy">Calendário da Jornada</p>
-          <p className="mt-1 text-xs font-semibold text-ink/58">365 dias, com marcos para celebrar a caminhada.</p>
+          <p className="mt-1 text-xs font-semibold text-ink/58">Acompanhe seu progresso ao longo dos 365 dias da jornada.</p>
         </div>
-        <span className="rounded-full bg-parchment px-3 py-1 text-xs font-black text-navy">{days.length} dias</span>
+        <span className="rounded-full bg-parchment px-3 py-1 text-xs font-black text-navy">{formatDias(days.length)}</span>
       </div>
 
       <div className="mt-4 grid grid-cols-[repeat(15,minmax(0,1fr))] gap-1 sm:grid-cols-[repeat(25,minmax(0,1fr))]">

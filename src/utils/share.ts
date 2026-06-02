@@ -1,3 +1,5 @@
+import { formatDias } from "@/utils/pluralize";
+
 export type ShareMessageParams = {
   currentDay?: number | null;
   day?: number | null;
@@ -48,10 +50,7 @@ export function generateShareMessage(params: ShareMessageParams) {
   const currentDay = safePositiveInteger(params.currentDay ?? params.day, 1);
   const quizTotal = safePositiveInteger(params.quizTotal, 3);
   const quizScore = Math.min(safeNonNegativeInteger(params.quizScore), quizTotal);
-  const wordScore = Math.min(
-    safeNonNegativeInteger(params.wordScore ?? params.wordAttempts),
-    6
-  );
+  const wordScore = Math.min(safeNonNegativeInteger(params.wordScore ?? params.wordAttempts), 6);
   const streak = safeNonNegativeInteger(params.streak);
   const totalXP = safeNonNegativeInteger(params.totalXP);
   const resultUrl = getResultUrl(params);
@@ -67,7 +66,7 @@ export function generateShareMessage(params: ShareMessageParams) {
       "🧠 Quiz concluído",
       "✝️ Palavra da Fé concluída",
       "",
-      `🔥 Sequência: ${streak} dias`,
+      `🔥 Sequência: ${formatDias(streak)}`,
       `⭐ XP total: ${totalXP}`,
       "",
       "Um passo de cada vez até concluir todo o Novo Testamento.",
@@ -79,11 +78,11 @@ export function generateShareMessage(params: ShareMessageParams) {
   }
 
   return assertCleanUtf8([
-    "🙏 Estou participando da Missão da Fé!",
+    "🙏 Missão da Fé",
     "",
-    `📖 Dia ${currentDay} de 365`,
-    `🔥 Sequência: ${streak} dias`,
-    `⭐ XP total: ${totalXP}`,
+    `📖 Dia ${currentDay}/365`,
+    `🔥 Sequência: ${formatDias(streak)}`,
+    `⭐ ${totalXP} XP`,
     "",
     "Hoje concluí:",
     "",

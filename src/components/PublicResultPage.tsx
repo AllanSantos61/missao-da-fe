@@ -6,6 +6,7 @@ import { MissaoDaFeLogo } from "@/components/MissaoDaFeLogo";
 import { getPublicResult } from "@/services/publicResultService";
 import { trackEvent } from "@/services/analyticsService";
 import { buildWhatsAppShareUrl, generateShareMessage } from "@/utils/share";
+import { formatDias } from "@/utils/pluralize";
 import type { PublicResult } from "@/types/dailyProgress";
 
 type PublicResultPageProps = {
@@ -185,7 +186,7 @@ export function PublicResultPage({ slug }: PublicResultPageProps) {
                 </div>
 
                 <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  <Metric label="Sequência" value={`🔥 ${result.streak} dias`} />
+                  <Metric label="Sequência" value={`🔥 ${formatDias(result.streak)}`} />
                   <Metric label="XP" value={`⭐ ${result.totalXP}`} />
                   <Metric label="Quiz" value={`🧠 ${result.quizScore}/${result.quizTotal}`} />
                   <Metric label="Palavra" value={`✝️ ${result.wordAttempts || 0}/6`} />
@@ -201,9 +202,7 @@ export function PublicResultPage({ slug }: PublicResultPageProps) {
                       <div
                         key={achievement.day}
                         className={`rounded-2xl border p-4 ${
-                          unlocked
-                            ? "border-gold/50 bg-gold/15"
-                            : "border-ink/10 bg-white text-ink/55"
+                          unlocked ? "border-gold/50 bg-gold/15" : "border-ink/10 bg-white text-ink/55"
                         }`}
                       >
                         <p className="font-black text-navy">
@@ -256,18 +255,10 @@ export function PublicResultPage({ slug }: PublicResultPageProps) {
                   >
                     Compartilhar no WhatsApp
                   </a>
-                  <button
-                    type="button"
-                    onClick={copyLink}
-                    className="rounded-2xl bg-parchment px-4 py-3 font-black text-navy"
-                  >
+                  <button type="button" onClick={copyLink} className="rounded-2xl bg-parchment px-4 py-3 font-black text-navy">
                     {copied ? "Link copiado" : "Copiar link"}
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => void shareNative()}
-                    className="rounded-2xl bg-parchment px-4 py-3 font-black text-navy"
-                  >
+                  <button type="button" onClick={() => void shareNative()} className="rounded-2xl bg-parchment px-4 py-3 font-black text-navy">
                     Compartilhar resultado
                   </button>
                 </div>
@@ -292,11 +283,7 @@ export function PublicResultPage({ slug }: PublicResultPageProps) {
                 </div>
               ))}
             </div>
-            <button
-              type="button"
-              onClick={() => setShowHowItWorks(false)}
-              className="mt-5 w-full rounded-2xl bg-navy px-5 py-4 font-black text-white"
-            >
+            <button type="button" onClick={() => setShowHowItWorks(false)} className="mt-5 w-full rounded-2xl bg-navy px-5 py-4 font-black text-white">
               Entendi
             </button>
           </div>

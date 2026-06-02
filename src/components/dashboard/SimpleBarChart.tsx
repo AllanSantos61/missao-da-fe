@@ -1,4 +1,5 @@
 import type { ChartPoint } from "@/services/adminDashboardService";
+import { formatDias } from "@/utils/pluralize";
 
 type SimpleBarChartProps = {
   title: string;
@@ -13,7 +14,7 @@ export function SimpleBarChart({ title, points, emptyLabel = "Sem dados suficien
     <section className="rounded-[1.5rem] bg-white p-5 shadow-card ring-1 ring-navy/5">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-lg font-black text-navy">{title}</h2>
-        <span className="rounded-full bg-parchment px-3 py-1 text-xs font-black text-navy">{points.length} dias</span>
+        <span className="rounded-full bg-parchment px-3 py-1 text-xs font-black text-navy">{formatDias(points.length)}</span>
       </div>
       {points.every((point) => point.value === 0) ? (
         <p className="mt-5 rounded-2xl bg-parchment p-4 text-sm font-bold text-ink/60">{emptyLabel}</p>
