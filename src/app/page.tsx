@@ -10,6 +10,7 @@ import { MissaoDaFeLogo } from "@/components/MissaoDaFeLogo";
 import { NewTestamentJourney } from "@/components/NewTestamentJourney";
 import { OnboardingModal } from "@/components/OnboardingModal";
 import { PlayerNameModal } from "@/components/PlayerNameModal";
+import { PwaInstallButton } from "@/components/PwaInstallButton";
 import { QuizFaith } from "@/components/QuizFaith";
 import { RankingModal } from "@/components/RankingModal";
 import { ReminderCard } from "@/components/ReminderCard";
@@ -24,6 +25,8 @@ import { saveStandaloneWordResult } from "@/services/supabaseProgressService";
 import type { ChallengeId, DailyChallengeResult, UserProgress } from "@/types/dailyProgress";
 import { buildStandaloneWordShareUrl } from "@/utils/share";
 
+type HomeTab = "home" | "journey" | "achievements" | "profile";
+
 const missionSteps: Array<{ id: ChallengeId; label: string; description: string }> = [
   { id: "gospel", label: "Leitura", description: "Leia o trecho do Novo Testamento de hoje." },
   { id: "quiz", label: "Quiz", description: "Responda 3 perguntas sobre a leitura." },
@@ -31,12 +34,22 @@ const missionSteps: Array<{ id: ChallengeId; label: string; description: string 
 ];
 
 const achievements = [
+  { day: 1, title: "Primeiro Dia", description: "A caminhada começou." },
   { day: 7, title: "Primeira Semana" },
   { day: 30, title: "30 Dias" },
   { day: 50, title: "Caminho Firme" },
   { day: 100, title: "Cem Dias de Fé" },
+  { day: 40, title: "Mateus concluído" },
+  { day: 135, title: "Evangelhos concluídos" },
   { day: 180, title: "Metade da Jornada" },
   { day: 365, title: "Novo Testamento Completo" }
+];
+
+const bottomNavItems: Array<{ id: HomeTab; label: string; icon: string }> = [
+  { id: "home", label: "Início", icon: "🏠" },
+  { id: "journey", label: "Jornada", icon: "📅" },
+  { id: "achievements", label: "Conquistas", icon: "🏆" },
+  { id: "profile", label: "Perfil", icon: "👤" }
 ];
 
 function getJourneyAvatar(day: number) {
@@ -57,6 +70,7 @@ function formatDateBR(dateKey: string | null) {
 export default function Home() {
   const router = useRouter();
   const [selectedChallenge, setSelectedChallenge] = useState<ChallengeId | null>(null);
+  const [activeTab, setActiveTab] = useState<HomeTab>("home");
   const [wordMode, setWordMode] = useState<"mission" | "standalone">("mission");
   const [standaloneWordResult, setStandaloneWordResult] = useState<DailyChallengeResult | undefined>();
   const [homeNotice, setHomeNotice] = useState("");
@@ -148,6 +162,7 @@ export default function Home() {
 
   function goHome() {
     setSelectedChallenge(null);
+    setActiveTab("home");
     setHomeNotice("");
     router.push("/");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -423,7 +438,7 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-parchment px-4 pb-6 text-ink">
+    <main className="min-h-screen bg-parchment px-4 pb-28 text-ink">
       <AppTopBar
         selectedChallenge={selectedChallenge}
         playerName={progress.playerName}
@@ -443,7 +458,7 @@ export default function Home() {
           </div>
         ) : null}
 
-        {!selectedChallenge ? (
+        {!selectedChallenge && activeTab === "home" ? (
           <>
             <section className="rounded-[2rem] bg-white p-5 text-center shadow-card">
               <div className="flex items-center justify-center gap-3">
@@ -452,7 +467,7 @@ export default function Home() {
                   {avatar}
                 </span>
               </div>
-              <p className="mt-5 text-xs font-black uppercase tracking-[0.2em] text-gold">Jornada da Fé</p>
+              <p className="mt-5 text-xs font-black uppercase tracking-[0.2em] text-gold">Missão diária</p>
               <h1 className="mt-2 text-4xl font-black leading-tight text-navy">
                 {todayMissionState.isMissionCompleted
                   ? `Dia ${todayMissionState.journeyDay} concluído`
@@ -463,25 +478,17 @@ export default function Home() {
                   ? "Você completou sua missão de hoje."
                   : "Sua missão diária está pronta."}
               </p>
-              <p className="mt-2 text-sm font-semibold leading-6 text-ink/65">
-                {todayMissionState.isMissionCompleted
-                  ? "A próxima missão será liberada amanhã."
-                  : "Leia o Novo Testamento em apenas 10 minutos por dia."}
-              </p>
               {todayMissionState.canContinueToday ? (
                 <button
                   onClick={continueDailyMission}
                   className="mt-5 w-full rounded-2xl bg-gold px-5 py-4 font-black text-navy shadow-card transition hover:-translate-y-0.5"
                 >
-                  {todayMissionState.primaryActionLabel}
+                  Continuar Missão
                 </button>
               ) : (
-                <div className="mt-5 space-y-3">
-                  <ShareResultButton progress={progress} todayHistory={todayHistory} />
-                  <p className="rounded-2xl bg-parchment px-4 py-3 text-sm font-black text-navy">
-                    Próxima missão em: {todayMissionState.nextMissionCountdown}
-                  </p>
-                </div>
+                <p className="mt-5 rounded-2xl bg-parchment px-4 py-3 text-sm font-black text-navy">
+                  Próxima missão em: {todayMissionState.nextMissionCountdown}
+                </p>
               )}
               {homeNotice ? (
                 <p className="mt-3 rounded-2xl bg-parchment px-4 py-3 text-sm font-black text-navy">
@@ -490,49 +497,9 @@ export default function Home() {
               ) : null}
             </section>
 
-            <section className="rounded-[1.75rem] bg-navy p-4 text-white shadow-soft">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-gold">Sua Jornada</p>
-              <h2 className="mt-1 text-2xl font-black">📅 Sua Jornada</h2>
-              <p className="mt-2 text-sm font-bold leading-6 text-white/75">
-                Iniciada há {walkingDays} {walkingDays === 1 ? "dia" : "dias"}.
-              </p>
-              <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
-                <div className="rounded-2xl bg-white/10 p-3">
-                  <p className="text-white/60">📅 Início da jornada</p>
-                  <p className="font-black">{formatDateBR(todayMissionState.journeyStartDate)}</p>
-                </div>
-                <div className="rounded-2xl bg-white/10 p-3">
-                  <p className="text-white/60">📖 Dia atual</p>
-                  <p className="font-black">{todayMissionState.currentMissionDay}/365</p>
-                </div>
-                <div className="rounded-2xl bg-white/10 p-3">
-                  <p className="text-white/60">🔥 Sequência</p>
-                  <p className="font-black">{journey?.progress.currentStreak ?? progress.currentStreak} dias</p>
-                </div>
-                <div className="rounded-2xl bg-white/10 p-3">
-                  <p className="text-white/60">⭐ XP total</p>
-                  <p className="font-black">{progress.totalXP}</p>
-                </div>
-                <div className="rounded-2xl bg-white/10 p-3">
-                  <p className="text-white/60">📖 Dias concluídos</p>
-                  <p className="font-black">{completedJourneyDays}/365</p>
-                </div>
-                <div className="rounded-2xl bg-white/10 p-3">
-                  <p className="text-white/60">🎯 Dias restantes</p>
-                  <p className="font-black">{remainingJourneyDays}</p>
-                </div>
-              </div>
-              <p className="mt-3 text-sm font-bold leading-6 text-white/76">
-                Você entende onde começou, onde está e quanto falta para concluir todo o Novo Testamento.
-              </p>
-            </section>
-
             <section className="rounded-[1.75rem] bg-white p-5 shadow-card">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.18em] text-gold">Missão do Dia</p>
-                  <h2 className="mt-1 text-2xl font-black text-navy">Progresso do dia</h2>
-                </div>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-gold">Progresso do dia</p>
                 <span className="rounded-full bg-parchment px-4 py-2 text-sm font-black text-navy">
                   {todayMissionState.completedCount}/{todayMissionState.totalSteps}
                 </span>
@@ -545,7 +512,7 @@ export default function Home() {
                     <button
                       key={step.id}
                       onClick={() => selectChallenge(step.id)}
-                      className="flex items-center justify-between rounded-2xl bg-parchment px-4 py-3 text-left transition hover:-translate-y-0.5"
+                      className="flex items-center justify-between rounded-2xl bg-parchment px-4 py-3 text-left"
                     >
                       <span className="flex items-center gap-3 font-black text-navy">
                         <span className={`flex h-7 w-7 items-center justify-center rounded-full ${completed ? "bg-faithGreen text-white" : "bg-white text-navy"}`}>
@@ -554,7 +521,7 @@ export default function Home() {
                         {step.label}
                       </span>
                       <span className={`rounded-full px-3 py-1 text-xs font-black ${completed ? "bg-faithGreen/12 text-faithGreen" : isNextStep ? "bg-gold/15 text-navy" : "bg-stone/20 text-ink/55"}`}>
-                        {completed ? "Concluído" : isNextStep ? "Disponível" : "Bloqueada"}
+                        {completed ? "Concluído" : isNextStep ? "Agora" : "Pendente"}
                       </span>
                     </button>
                   );
@@ -562,119 +529,143 @@ export default function Home() {
               </div>
             </section>
 
-            <section className="grid gap-3 sm:grid-cols-3">
-              {missionSteps.map((step) => {
-                const completed = getStepCompleted(step.id);
-                const status = completed ? "Concluído" : step.id === todayMissionState.nextPendingStep ? "Disponível" : "Bloqueada";
+            <section className="grid grid-cols-3 gap-2">
+              <MiniStat label="XP total" value={progress.totalXP} />
+              <MiniStat label="Sequência" value={`${journey?.progress.currentStreak ?? progress.currentStreak}d`} />
+              <button onClick={openRanking} className="rounded-2xl bg-navy p-3 text-left text-white shadow-card">
+                <p className="text-[11px] font-black uppercase tracking-wide text-gold">Ranking</p>
+                <p className="mt-1 text-lg font-black">{progress.weeklyXP > 0 ? `${progress.weeklyXP} XP` : "Entrar"}</p>
+              </button>
+            </section>
+          </>
+        ) : null}
+
+        {!selectedChallenge && activeTab === "journey" ? (
+          <section className="space-y-3">
+            <section className="rounded-[1.75rem] bg-navy p-4 text-white shadow-soft">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-gold">Jornada</p>
+              <h2 className="mt-1 text-2xl font-black">📅 Dia {todayMissionState.currentMissionDay} de 365</h2>
+              <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
+                <JourneyMetric label="Início" value={formatDateBR(todayMissionState.journeyStartDate)} />
+                <JourneyMetric label="Caminhada" value={`${walkingDays} dias`} />
+                <JourneyMetric label="Concluídos" value={`${completedJourneyDays}/365`} />
+                <JourneyMetric label="Restantes" value={remainingJourneyDays} />
+              </div>
+              <div className="mt-4">
+                <div className="flex justify-between text-xs font-black text-white/70">
+                  <span>Novo Testamento</span>
+                  <span>{Math.max(1, Math.round((completedJourneyDays / 365) * 100))}%</span>
+                </div>
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/15">
+                  <div className="h-full rounded-full bg-gold" style={{ width: `${Math.max(1, (completedJourneyDays / 365) * 100)}%` }} />
+                </div>
+              </div>
+            </section>
+            {journey ? (
+              <JourneyCalendar365
+                days={journey.calendar}
+                selectedDay={journey.selectedDay}
+                onSelectDay={selectJourneyDay}
+                onMilestoneClick={(dayNumber, title) =>
+                  void trackEvent({
+                    eventName: "calendar_milestone_clicked",
+                    userId: progress.anonymousUserId,
+                    playerName: progress.playerName,
+                    metadata: { dayNumber, title, source: "journey-tab" }
+                  })
+                }
+              />
+            ) : null}
+          </section>
+        ) : null}
+
+        {!selectedChallenge && activeTab === "achievements" ? (
+          <section className="rounded-[1.75rem] bg-white p-5 shadow-card">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-gold">Conquistas</p>
+            <h2 className="mt-1 text-2xl font-black text-navy">Marcos da caminhada</h2>
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {achievements.map((achievement) => {
+                const unlocked = currentJourneyDay >= achievement.day;
                 return (
-                  <article
-                    key={step.id}
-                    className="flex min-h-[150px] flex-col justify-between rounded-[1.25rem] border border-white bg-altar p-4 shadow-card"
+                  <div
+                    key={achievement.title}
+                    className={`min-h-[118px] rounded-2xl p-4 ${
+                      unlocked ? "bg-gold/15 text-navy ring-1 ring-gold/30" : "bg-parchment text-ink/48"
+                    }`}
                   >
-                    <div>
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="text-lg font-black text-navy">{step.label}</p>
-                        <span className={`rounded-full px-3 py-1 text-xs font-black ${
-                          completed ? "bg-faithGreen/12 text-faithGreen" : status === "Disponível" ? "bg-gold/15 text-navy" : "bg-stone/20 text-ink/55"
-                        }`}>
-                          {status}
-                        </span>
-                      </div>
-                      <p className="mt-2 text-sm leading-6 text-ink/65">{step.description}</p>
-                      {completed ? (
-                        <p className="mt-2 text-xs font-black uppercase tracking-wide text-faithGreen">
-                          XP já recebido
-                        </p>
-                      ) : null}
-                    </div>
-                    <button
-                      onClick={() => selectChallenge(step.id)}
-                      className="mt-4 w-full rounded-2xl bg-navy px-4 py-3 text-sm font-black text-white"
-                    >
-                      {completed ? "Rever" : status === "Bloqueada" ? "Abrir etapa" : "Começar"}
-                    </button>
-                  </article>
+                    <p className="text-2xl">{unlocked ? "🏅" : "○"}</p>
+                    <p className="mt-2 text-sm font-black leading-5">{achievement.title}</p>
+                    <p className="mt-1 text-xs font-bold">Dia {achievement.day}</p>
+                  </div>
                 );
               })}
+            </div>
+          </section>
+        ) : null}
+
+        {!selectedChallenge && activeTab === "profile" ? (
+          <>
+            <section className="rounded-[1.75rem] bg-white p-5 shadow-card">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-gold">Perfil</p>
+              <div className="mt-2 flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-2xl font-black text-navy">{progress.playerName || "Minha conta"}</h2>
+                  <p className="mt-1 text-sm font-bold text-ink/60">Progresso salvo neste dispositivo.</p>
+                </div>
+                <button onClick={() => setShowNameModal(true)} className="rounded-full bg-gold px-4 py-2 text-xs font-black text-navy">
+                  Editar
+                </button>
+              </div>
             </section>
 
-            {journey ? (
-              <section className="space-y-3">
-                <div className="rounded-[1.75rem] bg-white p-5 shadow-card">
-                  <p className="text-xs font-black uppercase tracking-[0.18em] text-gold">Sua Jornada</p>
-                  <h2 className="mt-1 text-2xl font-black text-navy">
-                    Dia {todayMissionState.currentMissionDay} de 365
-                  </h2>
-                  <p className="mt-2 text-sm font-bold leading-6 text-ink/62">
-                    Início: {formatDateBR(todayMissionState.journeyStartDate)} · Concluídos: {completedJourneyDays}/365
-                  </p>
-                </div>
-                <JourneyCalendar365
-                  days={journey.calendar}
-                  selectedDay={journey.selectedDay}
-                  onSelectDay={selectJourneyDay}
-                  onMilestoneClick={(dayNumber, title) =>
-                    void trackEvent({
-                      eventName: "calendar_milestone_clicked",
-                      userId: progress.anonymousUserId,
-                      playerName: progress.playerName,
-                      metadata: { dayNumber, title, source: "home" }
-                    })
-                  }
-                />
-              </section>
-            ) : null}
+            <section className="rounded-[1.75rem] bg-navy p-4 text-white shadow-soft">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-gold">Minha Jornada</p>
+              <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
+                <JourneyMetric label="Iniciou em" value={formatDateBR(todayMissionState.journeyStartDate)} />
+                <JourneyMetric label="Caminhando há" value={`${walkingDays} dias`} />
+                <JourneyMetric label="Concluídos" value={`${completedJourneyDays}/365`} />
+                <JourneyMetric label="Novo Testamento" value={`${Math.max(1, Math.round((completedJourneyDays / 365) * 100))}%`} />
+                <JourneyMetric label="XP total" value={progress.totalXP} />
+                <JourneyMetric label="Maior sequência" value={`${progress.bestStreak} dias`} />
+              </div>
+            </section>
+
+            <section className="grid gap-3 sm:grid-cols-2">
+              <button onClick={openRanking} className="rounded-2xl bg-white p-4 text-left font-black text-navy shadow-card">
+                🏆 Ranking da Semana
+                <span className="mt-1 block text-sm text-ink/58">{progress.weeklyXP} XP esta semana</span>
+              </button>
+              <button onClick={() => setShowCommunityModal(true)} className="rounded-2xl bg-white p-4 text-left font-black text-navy shadow-card">
+                ⛪ Minha comunidade
+                <span className="mt-1 block text-sm text-ink/58">Cidade, paróquia e grupo</span>
+              </button>
+            </section>
 
             <ReminderCard progress={progress} onSave={updateReminderPreference} />
 
             <section className="rounded-[1.75rem] bg-white p-5 shadow-card">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-gold">Conquistas</p>
-              <h2 className="mt-1 text-xl font-black text-navy">Marcos da caminhada</h2>
-              <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
-                {achievements.map((achievement) => {
-                  const unlocked = currentJourneyDay >= achievement.day;
-                  return (
-                    <div
-                      key={achievement.title}
-                      className={`rounded-2xl p-3 text-center ${
-                        unlocked ? "bg-gold/15 text-navy ring-1 ring-gold/25" : "bg-parchment text-ink/48"
-                      }`}
-                    >
-                      <p className="text-2xl">{unlocked ? "🏅" : "○"}</p>
-                      <p className="mt-1 text-xs font-black leading-4">{achievement.title}</p>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-
-            <section className="rounded-[1.75rem] bg-white p-5 shadow-card">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-xl font-black text-navy">🔥 Sua posição esta semana</p>
-                  <p className="mt-1 text-sm font-bold text-ink/60">
-                    {progress.weeklyXP > 0 ? "#1 entre participantes locais" : "Complete a missão para entrar no ranking"}
-                  </p>
-                </div>
-                <span className="rounded-full bg-gold/15 px-3 py-2 text-xs font-black text-navy">{progress.weeklyXP} XP</span>
-              </div>
-              <button onClick={openRanking} className="mt-4 w-full rounded-2xl bg-navy px-4 py-3 font-black text-white">
-                Ver Ranking Completo
-              </button>
-            </section>
-
-            <section className="rounded-[1.75rem] bg-white p-5 shadow-card">
-              <p className="text-xl font-black text-navy">Compartilhe sua jornada</p>
+              <p className="text-xl font-black text-navy">Compartilhar jornada</p>
               <div className="mt-3 rounded-2xl bg-parchment p-4 text-sm font-bold leading-7 text-navy">
                 <p>🙏 Missão da Fé</p>
                 <p>📖 Dia {todayMissionState.currentMissionDay}/365</p>
-                <p>🧠 Quiz {todayHistory.results.quiz?.quiz?.score ?? 0}/3</p>
-                <p>✝️ Palavra {todayHistory.results.word?.word?.attempts ?? 0}/6</p>
                 <p>🔥 Sequência {progress.currentStreak} dias</p>
+                <p>⭐ {progress.totalXP} XP</p>
               </div>
               <div className="mt-4">
                 <ShareResultButton progress={progress} todayHistory={todayHistory} />
               </div>
+            </section>
+
+            <section className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-2xl bg-white p-4 shadow-card">
+                <p className="font-black text-navy">Tema</p>
+                <p className="mt-1 text-sm font-bold text-ink/58">Claro, com modo escuro na leitura.</p>
+              </div>
+              <div className="rounded-2xl bg-white p-4 shadow-card">
+                <p className="font-black text-navy">Fonte</p>
+                <p className="mt-1 text-sm font-bold text-ink/58">Ajustável na tela de leitura.</p>
+              </div>
+              <PwaInstallButton progress={progress} />
             </section>
           </>
         ) : null}
@@ -779,6 +770,32 @@ export default function Home() {
         ) : null}
       </div>
 
+      {!selectedChallenge ? (
+        <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-navy/10 bg-white/95 px-3 py-2 shadow-[0_-12px_30px_rgba(18,53,91,0.08)] backdrop-blur">
+          <div className="mx-auto grid max-w-3xl grid-cols-4 gap-1 rounded-2xl bg-parchment p-1 sm:max-w-md">
+            {bottomNavItems.map((item) => {
+              const active = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => {
+                    setActiveTab(item.id);
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
+                  className={`rounded-xl px-1 py-2 text-center text-[11px] font-black transition ${
+                    active ? "bg-navy text-white shadow-sm" : "text-navy/62"
+                  }`}
+                >
+                  <span className="block text-lg leading-none">{item.icon}</span>
+                  <span className="mt-1 block">{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+      ) : null}
+
       {showNameModal ? (
         <PlayerNameModal
           currentName={progress.playerName}
@@ -801,5 +818,23 @@ export default function Home() {
         <OnboardingModal onComplete={handleOnboardingComplete} onSkip={handleOnboardingSkip} />
       ) : null}
     </main>
+  );
+}
+
+function MiniStat({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="rounded-2xl bg-white p-3 text-left shadow-card">
+      <p className="text-[11px] font-black uppercase tracking-wide text-gold">{label}</p>
+      <p className="mt-1 text-lg font-black text-navy">{value}</p>
+    </div>
+  );
+}
+
+function JourneyMetric({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="rounded-2xl bg-white/10 p-3">
+      <p className="text-white/60">{label}</p>
+      <p className="font-black">{value}</p>
+    </div>
   );
 }

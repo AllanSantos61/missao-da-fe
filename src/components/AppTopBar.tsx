@@ -13,17 +13,9 @@ type AppTopBarProps = {
   onOpenCommunity: () => void;
 };
 
-const navItems: Array<{ id: ChallengeId; label: string }> = [
-  { id: "gospel", label: "Jornada" },
-  { id: "quiz", label: "Quiz" },
-  { id: "word", label: "Palavra" }
-];
-
 export function AppTopBar({
-  selectedChallenge,
   playerName,
   onHome,
-  onSelectChallenge,
   onOpenName,
   onOpenRanking,
   onOpenCommunity
@@ -59,20 +51,6 @@ export function AppTopBar({
             </button>
           </div>
         </div>
-
-        <nav className="grid grid-cols-3 gap-2 rounded-2xl bg-white p-1 shadow-sm">
-          {navItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => onSelectChallenge(item.id)}
-              className={`rounded-xl px-2 py-2 text-sm font-black transition ${
-                selectedChallenge === item.id ? "bg-navy text-white" : "text-navy/72 hover:bg-parchment"
-              }`}
-            >
-              {item.label}
-            </button>
-          ))}
-        </nav>
       </div>
     </div>
   );
