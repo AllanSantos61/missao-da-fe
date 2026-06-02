@@ -83,7 +83,6 @@ export default function Home() {
     progress,
     todayHistory,
     isLoaded,
-    fallbackNotice: progressFallbackNotice,
     refreshDay,
     completeChallenge,
     updatePlayerName,
@@ -96,8 +95,10 @@ export default function Home() {
     journey,
     isLoading: isJourneyLoading,
     isCompleting: isJourneyCompleting,
-    fallbackNotice: journeyFallbackNotice,
     syncStatus,
+    syncErrorActive,
+    pendingSync,
+    lastSyncAt,
     selectJourneyDay,
     completeReading,
     completeJourneyPart
@@ -156,21 +157,25 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    const activeSyncError = isOnline && syncStatus === "error" && journey?.source !== "supabase" && Boolean(progressFallbackNotice || journeyFallbackNotice);
+    const activeSyncError = isOnline && syncStatus === "error" && syncErrorActive && journey?.source !== "supabase";
     console.log("[SyncBanner]", {
       isOnline,
+      isOffline: !isOnline,
       syncStatus,
+      syncError: syncErrorActive,
+      pendingSync,
+      lastSyncAt,
       journeySource: journey?.source,
       activeSyncError,
       reason: !isOnline
         ? "offline"
-        : syncStatus === "syncing"
+        : syncStatus === "syncing" || pendingSync
           ? "sincronizando"
-          : activeSyncError
+        : activeSyncError
             ? "erro ativo"
             : "sem banner"
     });
-  }, [isOnline, journey?.source, journeyFallbackNotice, progressFallbackNotice, syncStatus]);
+  }, [isOnline, journey?.source, lastSyncAt, pendingSync, syncErrorActive, syncStatus]);
 
   function getStepCompleted(challengeId: ChallengeId) {
     const status = todayMissionState.getMissionStatus(todayMissionState.currentMissionDay);
@@ -335,10 +340,10 @@ export default function Home() {
   }
 
   const selectedResult = selectedChallenge ? todayHistory.results[selectedChallenge] : undefined;
-  const hasSyncError = isOnline && syncStatus === "error" && journey?.source !== "supabase" && Boolean(progressFallbackNotice || journeyFallbackNotice);
+  const hasSyncError = isOnline && syncStatus === "error" && syncErrorActive && journey?.source !== "supabase";
   const statusBanner = !isOnline
     ? "⚠️ Você está sem conexão com a internet. Sua jornada continuará funcionando normalmente e seu progresso será sincronizado quando a conexão voltar."
-    : isJourneyCompleting || syncStatus === "syncing"
+    : isJourneyCompleting || syncStatus === "syncing" || pendingSync
       ? "🔄 Sincronizando seu progresso..."
       : hasSyncError
         ? "⚠️ Não foi possível sincronizar seus dados agora. Seu progresso continua salvo neste dispositivo."
