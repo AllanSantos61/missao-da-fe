@@ -74,6 +74,7 @@ export default function Home() {
   const [wordMode, setWordMode] = useState<"mission" | "standalone">("mission");
   const [standaloneWordResult, setStandaloneWordResult] = useState<DailyChallengeResult | undefined>();
   const [homeNotice, setHomeNotice] = useState("");
+  const [isOnline, setIsOnline] = useState(true);
   const [showNameModal, setShowNameModal] = useState(false);
   const [showRankingModal, setShowRankingModal] = useState(false);
   const [showCommunityModal, setShowCommunityModal] = useState(false);
@@ -105,6 +106,18 @@ export default function Home() {
     progress?.anonymousUserId
   );
   const todayMissionState = useJourneyMissionState(journey, todayHistory);
+
+  useEffect(() => {
+    if (typeof navigator === "undefined") return;
+    const updateOnlineStatus = () => setIsOnline(navigator.onLine);
+    updateOnlineStatus();
+    window.addEventListener("online", updateOnlineStatus);
+    window.addEventListener("offline", updateOnlineStatus);
+    return () => {
+      window.removeEventListener("online", updateOnlineStatus);
+      window.removeEventListener("offline", updateOnlineStatus);
+    };
+  }, []);
 
   useEffect(() => {
     refreshDay();
@@ -304,6 +317,14 @@ export default function Home() {
   }
 
   const selectedResult = selectedChallenge ? todayHistory.results[selectedChallenge] : undefined;
+  const hasSyncError = Boolean(progressFallbackNotice || journeyFallbackNotice);
+  const statusBanner = !isOnline
+    ? "⚠️ Você está sem conexão com a internet. Sua jornada continuará funcionando normalmente e seu progresso será sincronizado quando a conexão voltar."
+    : isJourneyCompleting
+      ? "🔄 Sincronizando seu progresso..."
+      : hasSyncError
+        ? "⚠️ Não foi possível sincronizar seus dados agora. Seu progresso continua salvo neste dispositivo."
+        : "";
   const selectedJourneyDay = journey?.calendar.find((day) => day.dayNumber === journey.selectedDay);
   const selectedMissionStatus = todayMissionState.getMissionStatus(journey?.selectedDay ?? todayMissionState.currentMissionDay);
   const currentJourneyDay = todayMissionState.currentMissionDay;
@@ -452,9 +473,9 @@ export default function Home() {
       />
 
       <div className="mx-auto mt-4 flex w-full max-w-3xl flex-col gap-4">
-        {progressFallbackNotice || journeyFallbackNotice ? (
+        {statusBanner ? (
           <div className="rounded-2xl bg-gold/15 px-4 py-3 text-sm font-black leading-5 text-navy shadow-sm">
-            {progressFallbackNotice || journeyFallbackNotice}
+            {statusBanner}
           </div>
         ) : null}
 
@@ -610,7 +631,7 @@ export default function Home() {
               <div className="mt-2 flex items-center justify-between gap-3">
                 <div>
                   <h2 className="text-2xl font-black text-navy">{progress.playerName || "Minha conta"}</h2>
-                  <p className="mt-1 text-sm font-bold text-ink/60">Progresso salvo neste dispositivo.</p>
+                  <p className="mt-1 text-sm font-bold text-ink/60">Cada passo fortalece sua caminhada de fé.</p>
                 </div>
                 <button onClick={() => setShowNameModal(true)} className="rounded-full bg-gold px-4 py-2 text-xs font-black text-navy">
                   Editar

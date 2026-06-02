@@ -68,6 +68,7 @@ export function useBibleJourney(userId: string, playerName: string, legacyUserId
         "Journey completion timeout"
       );
       setJourney(state);
+      setFallbackNotice("");
       return state;
     } catch (error) {
       console.log("[App] Supabase failed, using fallback", error);
@@ -99,6 +100,7 @@ export function useBibleJourney(userId: string, playerName: string, legacyUserId
           "Journey part completion timeout"
         );
         setJourney(state);
+        setFallbackNotice("");
         return state;
       } catch (error) {
         console.log("[App] Supabase failed, using fallback", error);
