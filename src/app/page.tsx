@@ -97,6 +97,7 @@ export default function Home() {
     isLoading: isJourneyLoading,
     isCompleting: isJourneyCompleting,
     fallbackNotice: journeyFallbackNotice,
+    syncStatus,
     selectJourneyDay,
     completeReading,
     completeJourneyPart
@@ -153,6 +154,23 @@ export default function Home() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    const activeSyncError = isOnline && syncStatus === "error" && journey?.source !== "supabase" && Boolean(progressFallbackNotice || journeyFallbackNotice);
+    console.log("[SyncBanner]", {
+      isOnline,
+      syncStatus,
+      journeySource: journey?.source,
+      activeSyncError,
+      reason: !isOnline
+        ? "offline"
+        : syncStatus === "syncing"
+          ? "sincronizando"
+          : activeSyncError
+            ? "erro ativo"
+            : "sem banner"
+    });
+  }, [isOnline, journey?.source, journeyFallbackNotice, progressFallbackNotice, syncStatus]);
 
   function getStepCompleted(challengeId: ChallengeId) {
     const status = todayMissionState.getMissionStatus(todayMissionState.currentMissionDay);
@@ -317,14 +335,15 @@ export default function Home() {
   }
 
   const selectedResult = selectedChallenge ? todayHistory.results[selectedChallenge] : undefined;
-  const hasSyncError = Boolean(progressFallbackNotice || journeyFallbackNotice);
+  const hasSyncError = isOnline && syncStatus === "error" && journey?.source !== "supabase" && Boolean(progressFallbackNotice || journeyFallbackNotice);
   const statusBanner = !isOnline
     ? "⚠️ Você está sem conexão com a internet. Sua jornada continuará funcionando normalmente e seu progresso será sincronizado quando a conexão voltar."
-    : isJourneyCompleting
+    : isJourneyCompleting || syncStatus === "syncing"
       ? "🔄 Sincronizando seu progresso..."
       : hasSyncError
         ? "⚠️ Não foi possível sincronizar seus dados agora. Seu progresso continua salvo neste dispositivo."
         : "";
+
   const selectedJourneyDay = journey?.calendar.find((day) => day.dayNumber === journey.selectedDay);
   const selectedMissionStatus = todayMissionState.getMissionStatus(journey?.selectedDay ?? todayMissionState.currentMissionDay);
   const currentJourneyDay = todayMissionState.currentMissionDay;

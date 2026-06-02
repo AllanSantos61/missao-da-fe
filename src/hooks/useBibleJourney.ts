@@ -44,6 +44,7 @@ export function useBibleJourney(userId: string, playerName: string, legacyUserId
   const [isLoading, setIsLoading] = useState(true);
   const [isCompleting, setIsCompleting] = useState(false);
   const [fallbackNotice, setFallbackNotice] = useState("");
+  const [syncStatus, setSyncStatus] = useState<"ok" | "syncing" | "error" | "offline" | "unknown">("unknown");
   const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
 
   const applyState = useCallback((state: CurrentReadingState, forceStatus?: "ok" | "error" | "offline") => {
@@ -52,11 +53,24 @@ export function useBibleJourney(userId: string, playerName: string, legacyUserId
     if (syncedAt) setLastSyncAt(syncedAt);
 
     if (state.source === "supabase") {
+      setSyncStatus("ok");
       setFallbackNotice("");
-      console.log("[App] Supabase success");
+      console.log("[Sync] Sincronização concluída", {
+        source: "banco",
+        status: "ok",
+        selectedDay: state.selectedDay,
+        version: versionFromState(state)
+      });
     } else {
-      setFallbackNotice(isOnline() ? "sync-error" : "");
-      console.log("[App] Supabase failed, using fallback");
+      const nextStatus = isOnline() ? "error" : "offline";
+      setSyncStatus(nextStatus);
+      setFallbackNotice(nextStatus === "error" ? "sync-error" : "");
+      console.log("[Sync] Usando fonte local", {
+        source: "local",
+        status: nextStatus,
+        selectedDay: state.selectedDay,
+        version: versionFromState(state)
+      });
     }
   }, [lastSyncAt]);
 
@@ -64,6 +78,7 @@ export function useBibleJourney(userId: string, playerName: string, legacyUserId
     const safeUserId = userId || "anonymous";
     const safePlayerName = playerName || "visitante";
     setIsLoading(true);
+    setSyncStatus(isOnline() ? "syncing" : "offline");
     console.log("[App] Loading started");
     try {
       const state = await withTimeout(
@@ -91,10 +106,46 @@ export function useBibleJourney(userId: string, playerName: string, legacyUserId
     loadJourney();
   }, [loadJourney]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    function handleOnline() {
+      console.log("[Sync] Navegador online; tentando ressincronizar");
+      if (journey?.source === "supabase") {
+        setSyncStatus("ok");
+        setFallbackNotice("");
+        return;
+      }
+      void loadJourney(journey?.selectedDay);
+    }
+
+    function handleOffline() {
+      console.log("[Sync] Navegador offline");
+      setSyncStatus("offline");
+      setFallbackNotice("");
+    }
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, [journey?.selectedDay, journey?.source, loadJourney]);
+
+  useEffect(() => {
+    if (journey?.source === "supabase" && isOnline()) {
+      console.log("[Sync] Fonte atual é banco; limpando erro de sincronização preso");
+      setSyncStatus("ok");
+      setFallbackNotice("");
+    }
+  }, [journey?.source]);
+
   const completeReading = useCallback(async (dayNumber?: number) => {
     const safeUserId = userId || "anonymous";
     const safePlayerName = playerName || "visitante";
     setIsCompleting(true);
+    setSyncStatus(isOnline() ? "syncing" : "offline");
     saveSyncDiagnostics({
       source: journey?.source === "supabase" ? "Banco" : "Local",
       lastSyncAt,
@@ -134,6 +185,7 @@ export function useBibleJourney(userId: string, playerName: string, legacyUserId
     const safeUserId = userId || "anonymous";
     const safePlayerName = playerName || "visitante";
     setIsCompleting(true);
+    setSyncStatus(isOnline() ? "syncing" : "offline");
     saveSyncDiagnostics({
       source: journey?.source === "supabase" ? "Banco" : "Local",
       lastSyncAt,
@@ -170,6 +222,7 @@ export function useBibleJourney(userId: string, playerName: string, legacyUserId
     isLoading,
     isCompleting,
     fallbackNotice,
+    syncStatus,
     reloadJourney: loadJourney,
     selectJourneyDay: loadJourney,
     completeReading,
