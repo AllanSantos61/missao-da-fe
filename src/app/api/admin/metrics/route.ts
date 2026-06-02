@@ -6,8 +6,8 @@ export async function GET() {
   try {
     requireAdminSession();
     const data = await getAdminDashboardData();
-    return NextResponse.json(data);
+    return NextResponse.json({ success: true, data });
   } catch {
-    return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
+    return NextResponse.json({ success: false, error: "Não autorizado." }, { status: 401 });
   }
 }

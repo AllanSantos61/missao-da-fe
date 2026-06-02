@@ -7,24 +7,43 @@ import { MetricCard } from "@/components/dashboard/MetricCard";
 import { SimpleBarChart } from "@/components/dashboard/SimpleBarChart";
 import type { AdminDashboardData } from "@/services/adminDashboardService";
 
+type MetricsResponse = {
+  success?: boolean;
+  data?: AdminDashboardData;
+  error?: string;
+};
+
 export default function AdminDashboardPage() {
   const [data, setData] = useState<AdminDashboardData | null>(null);
+  const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
-      const response = await fetch("/api/admin/metrics");
-      if (response.ok) setData(await response.json());
-      setIsLoading(false);
+      try {
+        const response = await fetch("/api/admin/metrics");
+        const body = (await response.json()) as MetricsResponse | AdminDashboardData;
+        if (!response.ok) throw new Error("Não foi possível carregar métricas.");
+        const dashboardData = "data" in body ? body.data ?? null : body;
+        setData(dashboardData && "metrics" in dashboardData ? dashboardData : null);
+      } catch (loadError) {
+        setError(loadError instanceof Error ? loadError.message : "Falha ao carregar dashboard.");
+      } finally {
+        setIsLoading(false);
+      }
     }
     void load();
   }, []);
 
   return (
     <AdminShell title="Dashboard">
-      {isLoading || !data ? (
+      {isLoading ? (
         <section className="rounded-[1.5rem] bg-white p-8 text-center shadow-card">
           <p className="font-black text-navy">Carregando métricas...</p>
+        </section>
+      ) : error || !data ? (
+        <section className="rounded-[1.5rem] bg-red-50 p-8 text-center shadow-card">
+          <p className="font-black text-red-700">{error || "Nenhuma métrica disponível."}</p>
         </section>
       ) : (
         <>

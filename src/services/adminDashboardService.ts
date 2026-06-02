@@ -1,3 +1,4 @@
+import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { supabaseClient } from "@/lib/supabaseClient";
 import { getTodayKey } from "@/utils/dateUtils";
 
@@ -26,14 +27,20 @@ export type AdminDashboardData = {
   source: "supabase" | "empty";
 };
 
+type SupabaseLike = {
+  from: (table: string) => any;
+};
+
 type ProfileRow = {
   user_id: string | null;
+  player_name?: string | null;
   total_xp: number | null;
   best_streak: number | null;
 };
 
 type JourneyProgressRow = {
   user_id: string | null;
+  player_name?: string | null;
   current_journey_day: number | null;
   total_xp: number | null;
   best_streak: number | null;
@@ -42,6 +49,7 @@ type JourneyProgressRow = {
 
 type JourneyDayStatusRow = {
   user_id: string | null;
+  player_name?: string | null;
   status: string | null;
   completed_date: string | null;
   reading_completed: boolean | null;
@@ -59,8 +67,13 @@ type DailyResultRow = {
 type AppEventRow = {
   event_name: string;
   user_id: string | null;
+  player_name?: string | null;
   created_at: string;
 };
+
+function getDb(): SupabaseLike | null {
+  return (getSupabaseAdmin() ?? supabaseClient) as SupabaseLike | null;
+}
 
 function getDaysAgoKey(daysAgo: number) {
   const date = new Date();
@@ -75,18 +88,19 @@ function dateFromDaysAgo(daysAgo: number) {
   return date.toISOString();
 }
 
-function isMissingTable(error: unknown) {
-  const supabaseError = error as { code?: string; message?: string };
-  return supabaseError.code === "42P01" || supabaseError.code === "PGRST205";
+function isExpectedSchemaGap(error: unknown) {
+  const supabaseError = error as { code?: string };
+  return supabaseError.code === "42P01" || supabaseError.code === "PGRST205" || supabaseError.code === "42703";
 }
 
-async function safeSelect<T>(table: string, query: (tableName: string) => PromiseLike<{ data: unknown; error: unknown }>) {
-  if (!supabaseClient) return [] as T[];
+async function safeSelect<T>(table: string, query: (db: SupabaseLike, tableName: string) => PromiseLike<{ data: unknown; error: unknown }>) {
+  const db = getDb();
+  if (!db) return [] as T[];
 
   try {
-    const { data, error } = await query(table);
+    const { data, error } = await query(db, table);
     if (error) {
-      if (!isMissingTable(error)) console.info("[Dashboard] Empty metric fallback", { table });
+      if (!isExpectedSchemaGap(error)) console.info("[Admin] Empty metric fallback", { table });
       return [] as T[];
     }
     return (data ?? []) as T[];
@@ -96,10 +110,11 @@ async function safeSelect<T>(table: string, query: (tableName: string) => Promis
 }
 
 async function safeCount(table: string, build?: (query: any) => any) {
-  if (!supabaseClient) return 0;
+  const db = getDb();
+  if (!db) return 0;
 
   try {
-    let query = supabaseClient.from(table).select("*", { count: "exact", head: true });
+    let query = db.from(table).select("*", { count: "exact", head: true });
     if (build) query = build(query);
     const { count, error } = await query;
     if (error) return 0;
@@ -134,22 +149,22 @@ export async function getTotalUsers() {
 
 export async function getActiveUsersToday() {
   const today = getTodayKey();
-  const events = await safeSelect<AppEventRow>("app_events", (table) =>
-    supabaseClient!.from(table).select("event_name, user_id, created_at").gte("created_at", `${today}T00:00:00`)
+  const events = await safeSelect<AppEventRow>("app_events", (db, table) =>
+    db.from(table).select("event_name, user_id, player_name, created_at").gte("created_at", `${today}T00:00:00`)
   );
   return uniqueCount(events);
 }
 
 export async function getActiveUsers7Days() {
-  const events = await safeSelect<AppEventRow>("app_events", (table) =>
-    supabaseClient!.from(table).select("event_name, user_id, created_at").gte("created_at", dateFromDaysAgo(6))
+  const events = await safeSelect<AppEventRow>("app_events", (db, table) =>
+    db.from(table).select("event_name, user_id, player_name, created_at").gte("created_at", dateFromDaysAgo(6))
   );
   return uniqueCount(events);
 }
 
 export async function getActiveUsers30Days() {
-  const events = await safeSelect<AppEventRow>("app_events", (table) =>
-    supabaseClient!.from(table).select("event_name, user_id, created_at").gte("created_at", dateFromDaysAgo(29))
+  const events = await safeSelect<AppEventRow>("app_events", (db, table) =>
+    db.from(table).select("event_name, user_id, player_name, created_at").gte("created_at", dateFromDaysAgo(29))
   );
   return uniqueCount(events);
 }
@@ -160,8 +175,8 @@ export async function getCompletedMissionsToday() {
 }
 
 export async function getFunnelMetrics(): Promise<FunnelStep[]> {
-  const events = await safeSelect<AppEventRow>("app_events", (table) =>
-    supabaseClient!.from(table).select("event_name, user_id, created_at").limit(5000)
+  const events = await safeSelect<AppEventRow>("app_events", (db, table) =>
+    db.from(table).select("event_name, user_id, player_name, created_at").limit(5000)
   );
 
   return [
@@ -176,8 +191,8 @@ export async function getFunnelMetrics(): Promise<FunnelStep[]> {
 }
 
 export async function getJourneyDistribution(): Promise<ChartPoint[]> {
-  const rows = await safeSelect<JourneyProgressRow>("user_journey_progress", (table) =>
-    supabaseClient!.from(table).select("current_journey_day").limit(5000)
+  const rows = await safeSelect<JourneyProgressRow>("user_journey_progress", (db, table) =>
+    db.from(table).select("current_journey_day").limit(5000)
   );
   const buckets = [
     { label: "1-7", min: 1, max: 7 },
@@ -197,11 +212,11 @@ export async function getJourneyDistribution(): Promise<ChartPoint[]> {
 }
 
 export async function getDailyActivity() {
-  const events = await safeSelect<AppEventRow>("app_events", (table) =>
-    supabaseClient!.from(table).select("event_name, user_id, created_at").gte("created_at", dateFromDaysAgo(13)).limit(5000)
+  const events = await safeSelect<AppEventRow>("app_events", (db, table) =>
+    db.from(table).select("event_name, user_id, player_name, created_at").gte("created_at", dateFromDaysAgo(13)).limit(5000)
   );
-  const statuses = await safeSelect<JourneyDayStatusRow>("user_journey_day_status", (table) =>
-    supabaseClient!.from(table).select("completed_date, status").gte("completed_date", getDaysAgoKey(13)).limit(5000)
+  const statuses = await safeSelect<JourneyDayStatusRow>("user_journey_day_status", (db, table) =>
+    db.from(table).select("completed_date, status").gte("completed_date", getDaysAgoKey(13)).limit(5000)
   );
 
   return {
@@ -235,20 +250,20 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     journeyDistribution,
     dailyActivity
   ] = await Promise.all([
-    safeSelect<ProfileRow>("profiles", (table) =>
-      supabaseClient!.from(table).select("user_id, total_xp, best_streak").limit(5000)
+    safeSelect<ProfileRow>("profiles", (db, table) =>
+      db.from(table).select("user_id, player_name, total_xp, best_streak").limit(5000)
     ),
-    safeSelect<JourneyProgressRow>("user_journey_progress", (table) =>
-      supabaseClient!.from(table).select("user_id, current_journey_day, total_xp, best_streak, last_access_date").limit(5000)
+    safeSelect<JourneyProgressRow>("user_journey_progress", (db, table) =>
+      db.from(table).select("user_id, player_name, current_journey_day, total_xp, best_streak, last_access_date").limit(5000)
     ),
-    safeSelect<DailyResultRow>("daily_results", (table) =>
-      supabaseClient!.from(table).select("player_name, challenge_date, challenge_type, xp_earned").eq("challenge_date", today).limit(5000)
+    safeSelect<DailyResultRow>("daily_results", (db, table) =>
+      db.from(table).select("player_name, challenge_date, challenge_type, xp_earned").eq("challenge_date", today).limit(5000)
     ),
-    safeSelect<JourneyDayStatusRow>("user_journey_day_status", (table) =>
-      supabaseClient!.from(table).select("*").eq("completed_date", today).limit(5000)
+    safeSelect<JourneyDayStatusRow>("user_journey_day_status", (db, table) =>
+      db.from(table).select("*").eq("completed_date", today).limit(5000)
     ),
-    safeSelect<AppEventRow>("app_events", (table) =>
-      supabaseClient!.from(table).select("event_name, user_id, created_at").gte("created_at", `${today}T00:00:00`).limit(5000)
+    safeSelect<AppEventRow>("app_events", (db, table) =>
+      db.from(table).select("event_name, user_id, player_name, created_at").gte("created_at", `${today}T00:00:00`).limit(5000)
     ),
     getTotalUsers(),
     getActiveUsersToday(),
@@ -269,7 +284,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
   const sharesToday = todayEvents.filter((event) => event.event_name === "whatsapp_shared" || event.event_name === "public_result_shared").length;
 
   return {
-    source: supabaseClient ? "supabase" : "empty",
+    source: getDb() ? "supabase" : "empty",
     metrics: [
       { label: "Usuários totais", value: totalUsers },
       { label: "Ativos hoje", value: activeToday },
