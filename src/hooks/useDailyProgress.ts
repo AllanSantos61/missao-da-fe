@@ -9,14 +9,14 @@ import type {
   UserProgress
 } from "@/types/dailyProgress";
 import {
+  addXP as addXPInService,
   completeChallenge as completeChallengeInService,
   completeOnboarding as completeOnboardingInService,
-  getUserProgress,
   getFallbackUserProgress,
+  getUserProgress,
   hasCompletedChallengeToday,
   resetDailyStateIfNeeded,
   saveUserProgress,
-  addXP as addXPInService,
   updateCommunity as updateCommunityInService,
   updatePlayerName as updatePlayerNameInService,
   updateReminderPreference as updateReminderPreferenceInService
@@ -25,16 +25,14 @@ import {
 export function useDailyProgress() {
   const [progress, setProgress] = useState<UserProgress | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [fallbackNotice, setFallbackNotice] = useState("");
+  const [fallbackNotice] = useState("");
 
   useEffect(() => {
     let isMounted = true;
     const timeout = window.setTimeout(() => {
       if (!isMounted) return;
-      console.log("[App] Supabase failed, using fallback");
-      const fallbackProgress = getFallbackUserProgress();
-      setFallbackNotice("Conexão lenta. Usando progresso local por enquanto.");
-      setProgress(fallbackProgress);
+      console.log("[App] Loading timeout; rendering local progress fallback");
+      setProgress(getFallbackUserProgress());
       setIsLoading(false);
       console.log("[App] Loading finished");
     }, 3000);
@@ -46,13 +44,10 @@ export function useDailyProgress() {
         saveUserProgress(nextProgress);
         if (!isMounted) return;
         setProgress(nextProgress);
-        console.log("[App] Supabase success");
       } catch (error) {
-        console.log("[App] Supabase failed, using fallback", error);
-        const fallbackProgress = getFallbackUserProgress();
+        console.log("[App] Local progress load failed; creating safe initial progress", error);
         if (!isMounted) return;
-        setFallbackNotice("Não foi possível carregar tudo online. Seu progresso local está ativo.");
-        setProgress(fallbackProgress);
+        setProgress(getFallbackUserProgress());
       } finally {
         window.clearTimeout(timeout);
         if (isMounted) {

@@ -100,16 +100,32 @@ export async function ensureUserProfile(progress: UserProgress): Promise<Profile
   };
 
   const existingProfile = await findProfileByUserId(getPrimaryUserId(progress), progress.playerName);
+  const safePayload = existingProfile
+    ? {
+        ...payload,
+        total_xp: Number(existingProfile.total_xp ?? 0),
+        weekly_xp: Number(existingProfile.weekly_xp ?? 0),
+        current_streak: Number(existingProfile.current_streak ?? 0),
+        best_streak: Number(existingProfile.best_streak ?? 0)
+      }
+    : payload;
 
   if (existingProfile?.id) {
-    const { error } = await supabaseClient.from("profiles").update(payload).eq("id", existingProfile.id);
+    if (Number(progress.totalXP ?? 0) > Number(existingProfile.total_xp ?? 0)) {
+      logSupabase("Local profile XP is higher than remote; keeping remote as source of truth", {
+        userId: getPrimaryUserId(progress),
+        localTotalXP: progress.totalXP,
+        remoteTotalXP: existingProfile.total_xp
+      });
+    }
+    const { error } = await supabaseClient.from("profiles").update(safePayload).eq("id", existingProfile.id);
     if (error) throw error;
     return existingProfile;
   }
 
   const upsertResult = await supabaseClient
     .from("profiles")
-    .upsert(payload, { onConflict: "user_id" })
+    .upsert(safePayload, { onConflict: "user_id" })
     .select("id, total_xp, weekly_xp, current_streak, best_streak")
     .limit(1);
 
@@ -117,7 +133,7 @@ export async function ensureUserProfile(progress: UserProgress): Promise<Profile
 
   const insertResult = await supabaseClient
     .from("profiles")
-    .insert(payload)
+    .insert(safePayload)
     .select("id, total_xp, weekly_xp, current_streak, best_streak")
     .limit(1);
 

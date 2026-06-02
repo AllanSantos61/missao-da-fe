@@ -412,6 +412,18 @@ export async function resolveUserProgress(userIdInput: string, playerNameInput: 
       : primaryLocalRows;
   const remoteScore = getProgressScore(remoteProgress, remoteRows);
   const localScore = getProgressScore(localRows.progressRow, localRows.completedRows);
+  const remoteUpdatedAt = remoteProgress?.last_access_date ?? remoteProgress?.last_completed_date ?? null;
+  const localUpdatedAt = localRows.progressRow?.last_access_date ?? localRows.progressRow?.last_completed_date ?? null;
+
+  logJourney("Resolving progress source", {
+    localUserId,
+    remoteScore,
+    localScore,
+    remoteUpdatedAt,
+    localUpdatedAt,
+    hasRemote: Boolean(remoteProgress),
+    hasLocal: Boolean(localRows.progressRow)
+  });
 
   if (!remoteProgress && !localRows.progressRow) {
     const initialRow: JourneyProgressRow = {
@@ -435,14 +447,16 @@ export async function resolveUserProgress(userIdInput: string, playerNameInput: 
     return { localUserId, progressRow: initialRow, completedRows: [] };
   }
 
-  if (localScore > remoteScore && localRows.progressRow) {
-    await syncResolvedProgressToSupabase(localUserId, playerName, localRows.progressRow, localRows.completedRows);
-    syncRemoteToLocal(localUserId, localRows.progressRow, localRows.completedRows);
-    logJourney("Resolved local progress as most advanced", { localUserId, localScore, remoteScore });
-    return { localUserId, progressRow: localRows.progressRow, completedRows: localRows.completedRows };
-  }
-
   if (remoteProgress) {
+    if (localScore > remoteScore) {
+      logJourney("Local progress is ahead, but remote is source of truth. Discarding local snapshot.", {
+        localUserId,
+        localScore,
+        remoteScore,
+        remoteUpdatedAt,
+        localUpdatedAt
+      });
+    }
     const normalizedRemote = {
       ...remoteProgress,
       user_id: localUserId,
@@ -456,6 +470,10 @@ export async function resolveUserProgress(userIdInput: string, playerNameInput: 
   }
 
   if (localRows.progressRow) {
+    logJourney("No remote progress found; using local snapshot to initialize remote state", {
+      localUserId,
+      localScore
+    });
     await syncResolvedProgressToSupabase(localUserId, playerName, localRows.progressRow, localRows.completedRows);
     return { localUserId, progressRow: localRows.progressRow, completedRows: localRows.completedRows };
   }

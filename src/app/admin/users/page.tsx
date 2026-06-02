@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminShell } from "@/components/admin/AdminShell";
+import { clearMissionFaithLocalData, getSyncDiagnostics, type ClientSyncDiagnostics } from "@/services/clientStorageSync";
 import { resolveAdminUserKey } from "@/lib/adminUserIdentity";
 
 type AdminUser = {
@@ -52,6 +53,7 @@ export default function AdminUsersPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
+  const [diagnostics, setDiagnostics] = useState<ClientSyncDiagnostics | null>(null);
 
   const filteredUsers = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -99,6 +101,10 @@ export default function AdminUsersPage() {
         body: payload ? JSON.stringify(payload) : undefined
       });
       await parseResponse(response);
+      if (path.includes("reset") || path.includes("delete-user")) {
+        await clearMissionFaithLocalData();
+        setDiagnostics(getSyncDiagnostics());
+      }
       setMessage(`${label} realizado com sucesso.`);
       setSelectedUser(null);
       await loadUsers();
@@ -109,7 +115,22 @@ export default function AdminUsersPage() {
     }
   }
 
+  async function clearLocalAndResync() {
+    if (!window.confirm("Limpar dados locais deste navegador e ressincronizar com o banco?")) return;
+    setError("");
+    setMessage("");
+    try {
+      await clearMissionFaithLocalData();
+      setDiagnostics(getSyncDiagnostics());
+      setMessage("Dados locais limpos. A próxima abertura do app buscará o estado do banco.");
+      await loadUsers();
+    } catch (clearError) {
+      setError(clearError instanceof Error ? clearError.message : "Não foi possível limpar dados locais.");
+    }
+  }
+
   useEffect(() => {
+    setDiagnostics(getSyncDiagnostics());
     void loadUsers();
   }, [loadUsers]);
 
@@ -134,8 +155,39 @@ export default function AdminUsersPage() {
           >
             Excluir dados de teste
           </button>
+          <button
+            onClick={clearLocalAndResync}
+            className="rounded-2xl bg-gold px-4 py-3 text-sm font-black text-navy"
+          >
+            Limpar dados locais e ressincronizar
+          </button>
         </div>
       </section>
+
+      {diagnostics ? (
+        <section className="rounded-[1.5rem] bg-navy p-5 text-white shadow-soft">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-gold">Diagnóstico de sincronização</p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-2xl bg-white/10 p-3">
+              <p className="text-xs font-bold text-white/60">Origem</p>
+              <p className="mt-1 font-black">{diagnostics.source}</p>
+            </div>
+            <div className="rounded-2xl bg-white/10 p-3">
+              <p className="text-xs font-bold text-white/60">Status</p>
+              <p className="mt-1 font-black">{diagnostics.status}</p>
+            </div>
+            <div className="rounded-2xl bg-white/10 p-3">
+              <p className="text-xs font-bold text-white/60">Última sincronização</p>
+              <p className="mt-1 break-all font-black">{diagnostics.lastSyncAt || "-"}</p>
+            </div>
+            <div className="rounded-2xl bg-white/10 p-3">
+              <p className="text-xs font-bold text-white/60">Versões</p>
+              <p className="mt-1 break-all text-sm font-black">Local: {diagnostics.localVersion}</p>
+              <p className="mt-1 break-all text-sm font-black">Banco: {diagnostics.remoteVersion}</p>
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       {message ? <p className="rounded-2xl bg-faithGreen/15 p-4 font-black text-faithGreen">{message}</p> : null}
       {error ? <p className="rounded-2xl bg-red-50 p-4 font-black text-red-700">{error}</p> : null}
