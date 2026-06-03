@@ -265,7 +265,6 @@ export default function Home() {
 
     setWordMode(mode);
     setHomeNotice("");
-    setSelectedChallenge(challengeId);
     void trackEvent({
       eventName: challengeId === "gospel" ? "reading_started" : challengeId === "quiz" ? "quiz_started" : "word_started",
       userId: progress?.anonymousUserId,
@@ -280,6 +279,10 @@ export default function Home() {
         metadata: { journeyDay: journey?.selectedDay }
       });
     }
+    const day = todayMissionState.currentMissionDay;
+    if (challengeId === "gospel") router.push(`/reading/${day}`);
+    if (challengeId === "quiz") router.push(`/quiz/${day}`);
+    if (challengeId === "word") router.push(`/word/${day}`);
   }
 
   function getNextMission(currentChallenge: ChallengeId) {
@@ -294,9 +297,8 @@ export default function Home() {
     if (journey && journey.selectedDay !== dayNumber) {
       await selectJourneyDay(dayNumber);
     }
-    selectChallenge(challengeId);
-    router.push(`/?missao=${challengeId}`, { scroll: false });
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    const route = challengeId === "gospel" ? "reading" : challengeId === "quiz" ? "quiz" : "word";
+    router.push(`/${route}/${dayNumber}`);
   }
 
   function continueDailyMission() {
