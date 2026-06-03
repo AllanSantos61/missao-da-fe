@@ -67,6 +67,7 @@ export function PublicResultPage({ slug }: PublicResultPageProps) {
   const shareUrl = useMemo(() => {
     if (!result) return "#";
     return buildWhatsAppShareUrl({
+      playerName: result.playerName,
       currentDay: day,
       quizScore: result.quizScore,
       quizTotal: result.quizTotal,
@@ -106,6 +107,7 @@ export function PublicResultPage({ slug }: PublicResultPageProps) {
       await navigator.share({
         title: "Missão da Fé",
         text: generateShareMessage({
+          playerName: result.playerName,
           currentDay: day,
           quizScore: result.quizScore,
           quizTotal: result.quizTotal,

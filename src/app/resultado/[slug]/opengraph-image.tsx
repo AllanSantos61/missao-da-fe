@@ -55,52 +55,65 @@ export default async function Image({ params }: { params: { slug: string } }) {
           width: "100%",
           height: "100%",
           display: "flex",
-          flexDirection: "column",
-          justifyContent: "space-between",
-          background: "#F8F5EF",
-          color: "#12355B",
-          padding: 64,
-          fontFamily: "Inter, Arial, sans-serif"
+          background: "#12355B",
+          color: "#FFFFFF",
+          fontFamily: "Inter, Arial, sans-serif",
+          padding: 56
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
-          <div
-            style={{
-              width: 88,
-              height: 88,
-              borderRadius: 26,
-              background: "#12355B",
-              color: "#D6A93A",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 44,
-              fontWeight: 900
-            }}
-          >
-            ✝
-          </div>
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            <div style={{ fontSize: 48, fontWeight: 900 }}>Missão da Fé</div>
-            <div style={{ marginTop: 6, fontSize: 24, color: "#4B5563" }}>
-              Jornada de 365 dias pelo Novo Testamento
+        <div
+          style={{
+            width: "100%",
+            height: "100%",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "space-between",
+            border: "3px solid rgba(214,169,58,0.55)",
+            borderRadius: 42,
+            padding: 46,
+            background: "linear-gradient(135deg, #12355B 0%, #0B2440 100%)"
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 22 }}>
+            <div
+              style={{
+                width: 84,
+                height: 84,
+                borderRadius: 24,
+                background: "#D6A93A",
+                color: "#12355B",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 44,
+                fontWeight: 900
+              }}
+            >
+              ✝
+            </div>
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              <div style={{ fontSize: 44, fontWeight: 900 }}>Missão da Fé</div>
+              <div style={{ marginTop: 4, fontSize: 22, color: "rgba(255,255,255,0.72)" }}>
+                Leia o Novo Testamento em 365 dias
+              </div>
             </div>
           </div>
-        </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-          <div style={{ fontSize: 62, fontWeight: 900, lineHeight: 1.08 }}>
-            {playerName} está no Dia {day} de 365
+          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+            <div style={{ fontSize: 34, fontWeight: 800, color: "#D6A93A" }}>{playerName}</div>
+            <div style={{ fontSize: 68, fontWeight: 900, lineHeight: 1 }}>
+              Dia {day} de 365
+            </div>
+            <div style={{ display: "flex", gap: 18, marginTop: 12 }}>
+              <div style={pillStyle}>🔥 Sequência {formatDias(streak)}</div>
+              <div style={pillStyle}>⭐ XP {xp}</div>
+              <div style={pillStyle}>📖 10 min/dia</div>
+            </div>
           </div>
-          <div style={{ display: "flex", gap: 20 }}>
-            <div style={pillStyle}>🔥 Sequência: {formatDias(streak)}</div>
-            <div style={pillStyle}>⭐ XP: {xp}</div>
-            <div style={pillStyle}>📖 10 min por dia</div>
-          </div>
-        </div>
 
-        <div style={{ fontSize: 30, fontWeight: 800, color: "#1F2937" }}>
-          Leia. Responda. Descubra a Palavra da Fé.
+          <div style={{ fontSize: 30, fontWeight: 800, color: "#F8F5EF" }}>
+            Uma missão por dia: Bíblia, quiz e Palavra da Fé.
+          </div>
         </div>
       </div>
     ),
@@ -110,10 +123,9 @@ export default async function Image({ params }: { params: { slug: string } }) {
 
 const pillStyle = {
   borderRadius: 999,
-  background: "#FFFFFF",
-  border: "2px solid rgba(214, 169, 58, 0.45)",
-  padding: "18px 24px",
-  fontSize: 28,
+  background: "#F8F5EF",
+  padding: "16px 22px",
+  fontSize: 26,
   fontWeight: 900,
   color: "#12355B"
 };

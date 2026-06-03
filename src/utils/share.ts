@@ -1,6 +1,7 @@
-import { formatDias } from "@/utils/pluralize";
+import { formatDias, formatUnit } from "@/utils/pluralize";
 
 export type ShareMessageParams = {
+  playerName?: string | null;
   currentDay?: number | null;
   day?: number | null;
   quizScore?: number | null;
@@ -39,6 +40,11 @@ function getResultUrl(params: ShareMessageParams) {
   );
 }
 
+function normalizePlayerName(playerName?: string | null) {
+  const trimmed = playerName?.trim();
+  return trimmed && trimmed.toLowerCase() !== "visitante" ? trimmed : "Alguém";
+}
+
 function assertCleanUtf8(message: string) {
   if (message.includes("\uFFFD")) {
     throw new Error("Share message contains replacement character.");
@@ -46,58 +52,46 @@ function assertCleanUtf8(message: string) {
   return message;
 }
 
+function withoutDuplicateUrls(lines: string[]) {
+  const seenUrls = new Set<string>();
+  return lines.filter((line) => {
+    const trimmed = line.trim();
+    if (!/^https?:\/\//i.test(trimmed)) return true;
+    if (seenUrls.has(trimmed)) return false;
+    seenUrls.add(trimmed);
+    return true;
+  });
+}
+
 export function generateShareMessage(params: ShareMessageParams) {
   const currentDay = safePositiveInteger(params.currentDay ?? params.day, 1);
-  const quizTotal = safePositiveInteger(params.quizTotal, 3);
-  const quizScore = Math.min(safeNonNegativeInteger(params.quizScore), quizTotal);
-  const wordScore = Math.min(safeNonNegativeInteger(params.wordScore ?? params.wordAttempts), 6);
   const streak = safeNonNegativeInteger(params.streak);
   const totalXP = safeNonNegativeInteger(params.totalXP);
   const resultUrl = getResultUrl(params);
+  const playerName = normalizePlayerName(params.playerName);
+  const quizTotal = safePositiveInteger(params.quizTotal, 3);
+  const quizScore = Math.min(safeNonNegativeInteger(params.quizScore), quizTotal);
   const completedAll = Boolean(params.readingDone) && quizScore === quizTotal && Boolean(params.wordSolved);
 
-  if (completedAll || params.variant === "complete" || params.variant === "premium") {
-    return assertCleanUtf8([
-      "🏆 Missão concluída!",
-      "",
-      `🙏 Dia ${currentDay} de 365`,
-      "",
-      "📖 Leitura concluída",
-      "🧠 Quiz concluído",
-      "✝️ Palavra da Fé concluída",
-      "",
-      `🔥 Sequência: ${formatDias(streak)}`,
-      `⭐ XP total: ${totalXP}`,
-      "",
-      "Um passo de cada vez até concluir todo o Novo Testamento.",
-      "",
-      resultUrl,
-      "",
-      "Comece sua jornada também 🙌"
-    ].join("\n"));
-  }
+  const title = completedAll || params.variant === "complete" || params.variant === "premium"
+    ? `🏆 Dia ${currentDay} de 365 concluído!`
+    : `🙏 Estou no Dia ${currentDay} da Jornada da Fé`;
 
-  return assertCleanUtf8([
-    "🙏 Missão da Fé",
-    "",
-    `📖 Dia ${currentDay}/365`,
+  const lines = [
+    `🙏 ${playerName} está na Missão da Fé`,
+    title,
     `🔥 Sequência: ${formatDias(streak)}`,
-    `⭐ ${totalXP} XP`,
-    "",
-    "Hoje concluí:",
-    "",
-    params.readingDone ? "📖 Leitura" : "📖 Leitura em andamento",
-    quizScore > 0 ? "🧠 Quiz" : "🧠 Quiz em andamento",
-    wordScore > 0 ? "✝️ Palavra da Fé" : "✝️ Palavra da Fé em andamento",
-    "",
-    "Estou lendo o Novo Testamento inteiro em apenas 10 minutos por dia.",
-    "",
-    "Veja meu progresso:",
-    "",
-    resultUrl,
-    "",
-    "Comece sua jornada também 🙌"
-  ].join("\n"));
+    `⭐ XP total: ${formatUnit(totalXP, "ponto", "pontos")}`,
+    "Leia todo o Novo Testamento em apenas 10 minutos por dia.",
+    "Todos os dias:",
+    "📖 Um trecho da Bíblia",
+    "🧠 Um quiz rápido",
+    "✝️ Uma Palavra da Fé",
+    "🙏 Aceita o desafio?",
+    resultUrl
+  ];
+
+  return assertCleanUtf8(withoutDuplicateUrls(lines).join("\n"));
 }
 
 export function buildWhatsAppShareUrl(params: ShareMessageParams) {
@@ -110,7 +104,7 @@ export function buildStandaloneWordShareUrl(params: {
   url: string;
 }) {
   const attempts = Math.min(safePositiveInteger(params.attempts, 6), 6);
-  const message = assertCleanUtf8([
+  const message = assertCleanUtf8(withoutDuplicateUrls([
     "🙏 Descobri a Palavra da Fé de hoje!",
     "",
     `✝️ Palavra da Fé: ${params.solved ? `${attempts}/6` : "quase consegui"}`,
@@ -118,7 +112,7 @@ export function buildStandaloneWordShareUrl(params: {
     "Agora vou completar minha Missão da Fé.",
     "",
     params.url || "https://missao-da-fe.vercel.app"
-  ].join("\n"));
+  ]).join("\n"));
 
   return `https://wa.me/?text=${encodeURIComponent(message)}`;
 }

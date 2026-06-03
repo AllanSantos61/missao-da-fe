@@ -38,7 +38,8 @@ export function ShareResultButton({ progress, todayHistory }: ShareResultButtonP
     };
   }, [progress, todayHistory]);
 
-  const shareUrl = buildWhatsAppShareUrl({
+  const shareParams = {
+    playerName: progress.playerName,
     readingDone,
     quizScore,
     quizTotal,
@@ -52,8 +53,9 @@ export function ShareResultButton({ progress, todayHistory }: ShareResultButtonP
     url,
     resultUrl: publicResultUrl || url,
     publicResultUrl,
-    variant: missionCompleted ? "complete" : "partial"
-  });
+    variant: missionCompleted ? "complete" as const : "partial" as const
+  };
+  const shareUrl = buildWhatsAppShareUrl(shareParams);
 
   async function handleShare(event: MouseEvent<HTMLAnchorElement>) {
     void trackEvent({
@@ -68,21 +70,7 @@ export function ShareResultButton({ progress, todayHistory }: ShareResultButtonP
     event.preventDefault();
     await navigator.share({
       title: "Missão da Fé",
-      text: generateShareMessage({
-        readingDone,
-        quizScore,
-        quizTotal,
-        wordScore: wordAttempts,
-        wordAttempts,
-        wordSolved,
-        streak: progress.currentStreak,
-        xpToday: todayHistory.xpEarned,
-        totalXP: progress.totalXP,
-        currentDay: fallbackResult.journeyDay,
-        resultUrl: publicResultUrl,
-        variant: missionCompleted ? "complete" : "partial"
-      }),
-      url: publicResultUrl
+      text: generateShareMessage(shareParams)
     }).catch(() => {
       window.open(shareUrl, "_blank", "noopener,noreferrer");
     });

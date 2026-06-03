@@ -16,9 +16,11 @@ export async function generateMetadata({ params }: ResultPageProps): Promise<Met
   const result = await getPublicResult(params.slug);
   const day = safeDay(result?.journeyDay);
   const title = result
-    ? `${result.playerName} está no Dia ${day} da Missão da Fé`
+    ? `🙏 ${result.playerName} está na Missão da Fé`
     : "Missão da Fé — Jornada de 365 dias";
-  const description = "Leia o Novo Testamento inteiro em apenas 10 minutos por dia com leitura, quiz e Palavra da Fé.";
+  const description = result
+    ? `Dia ${day} de 365. Leia todo o Novo Testamento em apenas 10 minutos por dia.`
+    : "Leia todo o Novo Testamento em 365 dias com uma missão por dia.";
   const imageUrl = `/resultado/${params.slug}/opengraph-image`;
 
   return {
