@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AppTopBar } from "@/components/AppTopBar";
 import { CommunityModal } from "@/components/CommunityModal";
@@ -108,7 +108,17 @@ export default function Home() {
     progress?.playerName ?? "",
     progress?.anonymousUserId
   );
-  const todayMissionState = useJourneyMissionState(journey, todayHistory);
+  const safeTodayHistory = useMemo(() => {
+    if (todayHistory) return todayHistory;
+    if (!progress) return null;
+    return {
+      date: progress.activeDate,
+      completedChallenges: [],
+      xpEarned: 0,
+      results: {}
+    };
+  }, [progress, todayHistory]);
+  const todayMissionState = useJourneyMissionState(journey, safeTodayHistory);
 
   useEffect(() => {
     if (typeof navigator === "undefined") return;
@@ -291,7 +301,7 @@ export default function Home() {
 
   function continueDailyMission() {
     try {
-      if (!progress || !todayHistory) {
+      if (!progress) {
         setHomeNotice("Estamos carregando sua missão. Tente novamente em instantes.");
         return;
       }
@@ -327,7 +337,7 @@ export default function Home() {
     return getNextMission(currentChallenge) ? "Avançar para próxima missão" : "Compartilhar missão";
   }
 
-  if (!isLoaded || !progress || !todayHistory) {
+  if (!isLoaded || !progress) {
     return (
       <main className="min-h-screen bg-parchment px-4 py-6 text-ink">
         <section className="mx-auto max-w-3xl rounded-[1.75rem] bg-white p-6 text-center shadow-card">
@@ -340,7 +350,13 @@ export default function Home() {
     );
   }
 
-  const selectedResult = selectedChallenge ? todayHistory.results[selectedChallenge] : undefined;
+  const renderedTodayHistory = safeTodayHistory ?? {
+    date: progress.activeDate,
+    completedChallenges: [],
+    xpEarned: 0,
+    results: {}
+  };
+  const selectedResult = selectedChallenge ? renderedTodayHistory.results[selectedChallenge] : undefined;
   const hasSyncError = isOnline && syncStatus === "error" && syncErrorActive && journey?.source !== "supabase";
   const statusBanner = !isOnline
     ? "⚠️ Você está sem conexão. Seu progresso será sincronizado quando a internet voltar."
@@ -702,7 +718,7 @@ export default function Home() {
                 <p>⭐ {progress.totalXP} XP</p>
               </div>
               <div className="mt-4">
-                <ShareResultButton progress={progress} todayHistory={todayHistory} />
+                <ShareResultButton progress={progress} todayHistory={renderedTodayHistory} />
               </div>
             </section>
 
@@ -720,14 +736,14 @@ export default function Home() {
           </>
         ) : null}
 
-        {selectedChallenge ? <DailyProgressHeader progress={progress} todayHistory={todayHistory} /> : null}
+        {selectedChallenge ? <DailyProgressHeader progress={progress} todayHistory={renderedTodayHistory} /> : null}
 
         {selectedChallenge === "gospel" && journey ? (
           <NewTestamentJourney
             journey={journey}
             savedResult={selectedResult}
             progress={progress}
-            todayHistory={todayHistory}
+            todayHistory={renderedTodayHistory}
             isCompleting={isJourneyCompleting}
             onCompleteReading={completeReading}
             onCompleteDaily={handleComplete}
@@ -764,7 +780,7 @@ export default function Home() {
             data={journeyQuizData}
             savedResult={journeyQuizResult}
             progress={progress}
-            todayHistory={todayHistory}
+            todayHistory={renderedTodayHistory}
             onComplete={(result) => handleJourneyPartComplete("quiz", result)}
             onNextMission={() => goToNextMission("quiz")}
             nextMissionLabel={getNextMissionLabel("quiz")}
@@ -792,7 +808,7 @@ export default function Home() {
             data={(wordMode === "standalone" ? standaloneWordData : journeyWordData)!}
             savedResult={wordMode === "standalone" ? standaloneWordResult : journeyWordResult}
             progress={progress}
-            todayHistory={todayHistory}
+            todayHistory={renderedTodayHistory}
             wordMode={wordMode}
             autoAdvanceOnComplete={wordMode === "mission"}
             ctaLabel="Agora complete sua missão de hoje"

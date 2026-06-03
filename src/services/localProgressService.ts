@@ -49,7 +49,7 @@ export function createInitialProgress(today = getTodayKey()): UserProgress {
     activeDate: today,
     anonymousUserId: localUserId,
     localUserId,
-    playerName: "",
+    playerName: "visitante",
     onboardingCompleted: false,
     totalXP: 0,
     weeklyXP: 0,

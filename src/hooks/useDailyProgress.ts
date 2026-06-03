@@ -32,7 +32,9 @@ export function useDailyProgress() {
     const timeout = window.setTimeout(() => {
       if (!isMounted) return;
       console.log("[App] Loading timeout; rendering local progress fallback");
-      setProgress(getFallbackUserProgress());
+      const fallbackProgress = getFallbackUserProgress();
+      saveUserProgress(fallbackProgress);
+      setProgress(fallbackProgress);
       setIsLoading(false);
       console.log("[App] Loading finished");
     }, 3000);

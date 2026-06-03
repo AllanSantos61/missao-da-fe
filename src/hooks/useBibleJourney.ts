@@ -6,6 +6,7 @@ import { saveSyncDiagnostics } from "@/services/clientStorageSync";
 import * as localBibleJourneyService from "@/services/localBibleJourneyService";
 import type { CurrentReadingState } from "@/types/bibleJourney";
 import type { DailyChallengeResult } from "@/types/dailyProgress";
+import { getTodayKey } from "@/utils/dateUtils";
 
 const LOAD_TIMEOUT_MS = 3000;
 const SYNC_ERROR_VISIBLE_MS = 8000;
@@ -27,6 +28,77 @@ function isOnline() {
 
 function versionFromState(state: CurrentReadingState) {
   return `${state.progress.completedReadings}/${state.progress.totalReadings}:xp-${state.progress.totalXp}:day-${state.progress.currentJourneyDay}`;
+}
+
+function createEmergencyJourneyState(playerName: string, dayNumber = 1): CurrentReadingState {
+  const today = getTodayKey();
+  const safeDay = Math.min(365, Math.max(1, Number.isFinite(dayNumber) ? Math.round(dayNumber) : 1));
+  return {
+    reading: {
+      orderIndex: safeDay,
+      testament: "novo_testamento",
+      book: "Mateus",
+      chapterStart: 1,
+      verseStart: 1,
+      chapterEnd: 1,
+      verseEnd: null,
+      reference: "Mateus 1",
+      title: "Início da Jornada da Fé",
+      content: null,
+      estimatedMinutes: 10,
+      xpReward: 40
+    },
+    selectedDay: safeDay,
+    mission: {
+      dayNumber: safeDay,
+      title: "Início da Jornada da Fé",
+      bibleReference: "Mateus 1",
+      bibleBook: "Mateus",
+      chapterStart: 1,
+      verseStart: 1,
+      chapterEnd: 1,
+      verseEnd: null,
+      estimatedMinutes: 10,
+      faithWord: "Jesus",
+      normalizedFaithWord: "JESUS",
+      readingXp: 40,
+      quizXp: 45,
+      wordXp: 35,
+      quizQuestions: [],
+      source: "local"
+    },
+    progress: {
+      playerName: playerName || "visitante",
+      journeyStartDate: today,
+      currentJourneyDay: 1,
+      availableJourneyDay: 1,
+      completedDays: [],
+      missedDays: [1],
+      availableDays: [1],
+      lastAccessDate: today,
+      lastCompletedDate: null,
+      currentStreak: 0,
+      bestStreak: 0,
+      totalXp: 0,
+      completedReadings: 0,
+      totalReadings: 365,
+      pendingCount: 1
+    },
+    calendar: Array.from({ length: 365 }, (_, index) => ({
+      dayNumber: index + 1,
+      status: index === 0 ? "available" : "locked",
+      readingCompleted: false,
+      quizCompleted: false,
+      wordCompleted: false,
+      wordAttemptsHistory: [],
+      wordResult: null,
+      wordAttempts: 0,
+      xpEarned: 0,
+      completedDate: null
+    })),
+    source: "local",
+    notice: "Sua jornada foi iniciada localmente. Você pode continuar normalmente."
+  };
 }
 
 function saveDiagnostics(state: CurrentReadingState, lastSyncAt: string | null, status: SyncStatus) {
@@ -150,7 +222,13 @@ export function useBibleJourney(userId: string, playerName: string, legacyUserId
       );
       applyState(state);
     } catch (error) {
-      const fallbackState = await localBibleJourneyService.getJourneyDay(safeUserId, dayNumber);
+      let fallbackState: CurrentReadingState;
+      try {
+        fallbackState = await localBibleJourneyService.getJourneyDay(safeUserId, dayNumber);
+      } catch (localError) {
+        console.log("[App] Local journey fallback failed; creating emergency Day 1 state", localError);
+        fallbackState = createEmergencyJourneyState(safePlayerName, dayNumber ?? 1);
+      }
       applyState(fallbackState, {
         syncFailed: true,
         reason: "falha ao buscar jornada no banco",
