@@ -10,11 +10,11 @@ type ReminderCardProps = {
   onSave: (reminder: ReminderPreference) => void;
 };
 
-const periods: Array<{ value: ReminderPeriod; label: string }> = [
-  { value: "morning", label: "Manhã" },
-  { value: "afternoon", label: "Tarde" },
-  { value: "night", label: "Noite" },
-  { value: "custom", label: "Hora" }
+const periods: Array<{ value: ReminderPeriod; label: string; description: string }> = [
+  { value: "morning", label: "Manhã", description: "Começar o dia com a Palavra." },
+  { value: "afternoon", label: "Tarde", description: "Pausar e retomar a missão." },
+  { value: "night", label: "Noite", description: "Fechar o dia em oração." },
+  { value: "custom", label: "Hora", description: "Escolher um horário." }
 ];
 
 export function ReminderCard({ progress, onSave }: ReminderCardProps) {
@@ -50,6 +50,7 @@ export function ReminderCard({ progress, onSave }: ReminderCardProps) {
         {periods.map((period) => (
           <button
             key={period.value}
+            title={period.description}
             onClick={() => setReminder((current) => ({ ...current, period: period.value }))}
             className={`rounded-xl px-2 py-2 text-xs font-black ${
               reminder.period === period.value ? "bg-navy text-white" : "bg-parchment text-navy"

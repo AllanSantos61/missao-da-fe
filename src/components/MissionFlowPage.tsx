@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { FocusedQuizMission } from "@/components/FocusedQuizMission";
 import { FocusedReadingMission } from "@/components/FocusedReadingMission";
 import { MissaoDaFeLogo } from "@/components/MissaoDaFeLogo";
-import { QuizFaith } from "@/components/QuizFaith";
 import { ShareResultButton } from "@/components/ShareResultButton";
 import { WordFaithGame } from "@/components/WordFaithGame";
 import { useBibleJourney } from "@/hooks/useBibleJourney";
@@ -13,6 +13,7 @@ import { useDailyProgress } from "@/hooks/useDailyProgress";
 import { useJourneyMissionState } from "@/hooks/useJourneyMissionState";
 import { trackEvent } from "@/services/analyticsService";
 import type { DailyChallengeResult, DayHistory } from "@/types/dailyProgress";
+import { formatDias } from "@/utils/pluralize";
 
 type MissionFlowStep = "reading" | "quiz" | "word" | "result";
 
@@ -100,14 +101,20 @@ export function MissionFlowPage({ step, day }: MissionFlowPageProps) {
   }
 
   const activeDay = journey.selectedDay;
-  const readingXp = journey.reading.xpReward;
   const selectedDay = journey.calendar.find((calendarDay) => calendarDay.dayNumber === activeDay);
   const selectedStatus = missionState.getMissionStatus(activeDay);
+  const readingXp = journey.reading.xpReward;
+  const quizXp = journey.mission?.quizXp ?? dailyChallengeContent.quiz.xp;
+  const wordXp = journey.mission?.wordXp ?? dailyChallengeContent.word.xp;
+  const dailyXp = (selectedStatus.readingCompleted ? readingXp : 0) +
+    (selectedStatus.quizCompleted ? quizXp : 0) +
+    (selectedStatus.wordCompleted ? wordXp : 0);
+
   const readingResult = selectedStatus.readingCompleted
     ? {
         id: "gospel" as const,
         completedAt: selectedDay?.completedDate ?? new Date().toISOString(),
-        xpEarned: journey.reading.xpReward,
+        xpEarned: readingXp,
         scoreLabel: "Concluído",
         gospel: { completed: true }
       }
@@ -116,7 +123,7 @@ export function MissionFlowPage({ step, day }: MissionFlowPageProps) {
     ? {
         id: "quiz" as const,
         completedAt: selectedDay?.completedDate ?? new Date().toISOString(),
-        xpEarned: journey.mission?.quizXp ?? dailyChallengeContent.quiz.xp,
+        xpEarned: quizXp,
         scoreLabel: "Concluído",
         quiz: { score: 3, total: 3, answers: {} }
       }
@@ -125,8 +132,8 @@ export function MissionFlowPage({ step, day }: MissionFlowPageProps) {
     ? {
         id: "word" as const,
         completedAt: selectedDay?.completedDate ?? new Date().toISOString(),
-        xpEarned: journey.mission?.wordXp ?? dailyChallengeContent.word.xp,
-      scoreLabel: selectedDay?.wordAttempts ? `${selectedDay.wordAttempts}/6` : "Concluído",
+        xpEarned: wordXp,
+        scoreLabel: selectedDay?.wordAttempts ? `${selectedDay.wordAttempts}/6` : "Concluído",
         word: {
           solved: Boolean(selectedDay?.wordResult?.solved ?? true),
           attempts: selectedDay?.wordAttempts ?? 0,
@@ -177,7 +184,7 @@ export function MissionFlowPage({ step, day }: MissionFlowPageProps) {
     const quizData = journey.mission
       ? {
           title: `Quiz do Dia ${activeDay}`,
-          xp: journey.mission.quizXp,
+          xp: quizXp,
           questions: journey.mission.quizQuestions.map((question) => ({
             id: question.id,
             question: question.question,
@@ -189,20 +196,12 @@ export function MissionFlowPage({ step, day }: MissionFlowPageProps) {
       : dailyChallengeContent.quiz;
 
     return (
-      <main className="min-h-screen bg-parchment px-4 py-5 text-ink">
-        <div className="mx-auto max-w-2xl">
-          <QuizFaith
-            data={quizData}
-            savedResult={quizResult}
-            progress={progress}
-            todayHistory={renderedTodayHistory}
-            onComplete={handleQuizComplete}
-            onNextMission={() => router.push(`/word/${activeDay}`)}
-            nextMissionLabel="Continuar para Palavra"
-            onBack={() => router.push("/")}
-          />
-        </div>
-      </main>
+      <FocusedQuizMission
+        dayNumber={activeDay}
+        data={quizData}
+        savedResult={quizResult}
+        onComplete={handleQuizComplete}
+      />
     );
   }
 
@@ -211,7 +210,7 @@ export function MissionFlowPage({ step, day }: MissionFlowPageProps) {
       ? {
           title: `Palavra do Dia ${activeDay}`,
           secret: journey.mission.normalizedFaithWord,
-          xp: journey.mission.wordXp
+          xp: wordXp
         }
       : dailyChallengeContent.word;
 
@@ -236,6 +235,7 @@ export function MissionFlowPage({ step, day }: MissionFlowPageProps) {
   }
 
   const completedCount = [selectedStatus.readingCompleted, selectedStatus.quizCompleted, selectedStatus.wordCompleted].filter(Boolean).length;
+  const journeyPercent = Math.min(100, Math.round((journey.progress.completedReadings / journey.progress.totalReadings) * 100));
 
   return (
     <main className="min-h-screen bg-parchment px-4 py-6 text-ink">
@@ -257,9 +257,20 @@ export function MissionFlowPage({ step, day }: MissionFlowPageProps) {
           <ResultItem label="Palavra da Fé" completed={selectedStatus.wordCompleted} />
         </div>
 
+        <div className="mt-6 grid gap-3 sm:grid-cols-3">
+          <ResultMetric label="XP ganho" value={dailyXp} />
+          <ResultMetric label="Sequência" value={formatDias(journey.progress.currentStreak)} />
+          <ResultMetric label="Jornada" value={`${journeyPercent}%`} />
+        </div>
+
         <div className="mt-6 rounded-2xl bg-parchment p-4">
-          <p className="text-sm font-black text-navy">Progresso do dia</p>
-          <p className="mt-1 text-3xl font-black text-gold">{completedCount}/3</p>
+          <div className="flex items-center justify-between text-sm font-black text-navy">
+            <span>Progresso da Jornada</span>
+            <span>{journey.progress.completedReadings}/365</span>
+          </div>
+          <div className="mt-3 h-3 overflow-hidden rounded-full bg-white">
+            <div className="h-full rounded-full bg-gold" style={{ width: `${journeyPercent}%` }} />
+          </div>
         </div>
 
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
@@ -290,6 +301,15 @@ function ResultItem({ label, completed }: { label: string; completed: boolean })
   return (
     <div className={`rounded-2xl px-4 py-3 font-black ${completed ? "bg-faithGreen/12 text-faithGreen" : "bg-parchment text-ink/60"}`}>
       {completed ? "✓" : "○"} {label}
+    </div>
+  );
+}
+
+function ResultMetric({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="rounded-2xl bg-parchment p-4">
+      <p className="text-xs font-black uppercase tracking-wide text-gold">{label}</p>
+      <p className="mt-1 text-xl font-black text-navy">{value}</p>
     </div>
   );
 }
