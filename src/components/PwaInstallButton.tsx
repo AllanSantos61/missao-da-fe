@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { trackEvent } from "@/services/analyticsService";
 import type { UserProgress } from "@/types/dailyProgress";
 
@@ -13,9 +13,21 @@ type PwaInstallButtonProps = {
   progress: UserProgress;
 };
 
+function isIosDevice() {
+  if (typeof navigator === "undefined") return false;
+  return /iphone|ipad|ipod/i.test(navigator.userAgent);
+}
+
+function isStandalone() {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia("(display-mode: standalone)").matches || Boolean((navigator as Navigator & { standalone?: boolean }).standalone);
+}
+
 export function PwaInstallButton({ progress }: PwaInstallButtonProps) {
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
+  const [showIosHint, setShowIosHint] = useState(false);
+  const isIos = useMemo(() => isIosDevice(), []);
 
   useEffect(() => {
     function handleBeforeInstallPrompt(event: Event) {
@@ -23,12 +35,19 @@ export function PwaInstallButton({ progress }: PwaInstallButtonProps) {
       setInstallPrompt(event as BeforeInstallPromptEvent);
     }
 
-    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
-    if ("serviceWorker" in navigator) {
-      void navigator.serviceWorker.register("/sw.js").catch(() => undefined);
+    function handleInstalled() {
+      setIsInstalled(true);
+      setInstallPrompt(null);
     }
-    setIsInstalled(window.matchMedia("(display-mode: standalone)").matches);
-    return () => window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    window.addEventListener("appinstalled", handleInstalled);
+    setIsInstalled(isStandalone());
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+      window.removeEventListener("appinstalled", handleInstalled);
+    };
   }, []);
 
   if (isInstalled) return null;
@@ -40,18 +59,32 @@ export function PwaInstallButton({ progress }: PwaInstallButtonProps) {
       playerName: progress.playerName
     });
 
-    if (!installPrompt) return;
-    await installPrompt.prompt();
-    await installPrompt.userChoice;
-    setInstallPrompt(null);
+    if (installPrompt) {
+      await installPrompt.prompt();
+      await installPrompt.userChoice;
+      setInstallPrompt(null);
+      return;
+    }
+
+    if (isIos) {
+      setShowIosHint((current) => !current);
+    }
   }
 
   return (
-    <button
-      onClick={install}
-      className="w-full rounded-2xl border border-navy/10 bg-white px-4 py-3 text-sm font-black text-navy shadow-sm"
-    >
-      Adicionar à tela inicial
-    </button>
+    <div className="rounded-2xl border border-navy/10 bg-white p-4 shadow-sm">
+      <button onClick={install} className="w-full rounded-xl bg-navy px-4 py-3 text-sm font-black text-white">
+        Instalar app
+      </button>
+      {showIosHint ? (
+        <p className="mt-3 text-xs font-bold leading-5 text-ink/65">
+          No iPhone, toque em Compartilhar no Safari e escolha “Adicionar à Tela de Início”.
+        </p>
+      ) : (
+        <p className="mt-2 text-xs font-bold leading-5 text-ink/55">
+          Acesse sua jornada em tela cheia pelo celular.
+        </p>
+      )}
+    </div>
   );
 }
