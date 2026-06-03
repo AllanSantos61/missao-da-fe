@@ -20,7 +20,9 @@ import { useBibleJourney } from "@/hooks/useBibleJourney";
 import { useDailyChallengeContent } from "@/hooks/useDailyChallengeContent";
 import { useDailyProgress } from "@/hooks/useDailyProgress";
 import { useJourneyMissionState } from "@/hooks/useJourneyMissionState";
+import { useAuthSession } from "@/hooks/useAuthSession";
 import { trackEvent } from "@/services/analyticsService";
+import { signOut } from "@/services/authService";
 import { saveStandaloneWordResult } from "@/services/supabaseProgressService";
 import type { ChallengeId, DailyChallengeResult, UserProgress } from "@/types/dailyProgress";
 import { formatDias } from "@/utils/pluralize";
@@ -80,6 +82,7 @@ export default function Home() {
   const [showRankingModal, setShowRankingModal] = useState(false);
   const [showCommunityModal, setShowCommunityModal] = useState(false);
   const dailyChallengeContent = useDailyChallengeContent();
+  const { user: authUser } = useAuthSession();
   const {
     progress,
     todayHistory,
@@ -501,6 +504,11 @@ export default function Home() {
     });
   }
 
+  async function handleSignOut() {
+    await signOut();
+    setHomeNotice("Você saiu da conta. Sua jornada continua salva neste dispositivo.");
+  }
+
   return (
     <main className="min-h-screen bg-parchment px-4 pb-28 text-ink">
       <AppTopBar
@@ -693,6 +701,45 @@ export default function Home() {
                 <JourneyMetric label="Maior sequência" value={formatDias(progress.bestStreak)} />
               </div>
             </section>
+
+            <section className="rounded-[1.75rem] bg-white p-5 shadow-card">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-gold">Status da conta</p>
+              {authUser ? (
+                <div className="mt-3">
+                  <h3 className="text-xl font-black text-faithGreen">✅ Jornada protegida</h3>
+                  <p className="mt-2 text-sm font-bold leading-6 text-ink/65">Sua jornada está salva na nuvem.</p>
+                  <div className="mt-4 rounded-2xl bg-parchment p-4 text-sm font-bold text-navy">
+                    <p>E-mail: {authUser.email}</p>
+                    <p>Nome: {progress.playerName || "visitante"}</p>
+                  </div>
+                  <button onClick={() => void handleSignOut()} className="mt-4 rounded-2xl bg-navy px-5 py-3 font-black text-white">
+                    Sair
+                  </button>
+                </div>
+              ) : (
+                <div className="mt-3">
+                  <h3 className="text-xl font-black text-navy">⚠️ Jornada salva apenas neste dispositivo</h3>
+                  <p className="mt-2 text-sm font-bold leading-6 text-ink/65">
+                    Crie uma conta para proteger sua caminhada e continuar em qualquer celular.
+                  </p>
+                  <button onClick={() => router.push("/register")} className="mt-4 rounded-2xl bg-gold px-5 py-3 font-black text-navy">
+                    Criar conta
+                  </button>
+                </div>
+              )}
+            </section>
+
+            {!authUser && completedJourneyDays >= 3 ? (
+              <section className="rounded-[1.75rem] bg-gold/15 p-5 shadow-card">
+                <p className="text-xl font-black text-navy">🔒 Proteja sua Jornada</p>
+                <p className="mt-2 text-sm font-bold leading-6 text-ink/65">
+                  Você já começou sua caminhada. Crie uma conta para não perder seu progresso.
+                </p>
+                <button onClick={() => router.push("/register")} className="mt-4 rounded-2xl bg-navy px-5 py-3 font-black text-white">
+                  Criar conta
+                </button>
+              </section>
+            ) : null}
 
             <section className="grid gap-3 sm:grid-cols-2">
               <button onClick={openRanking} className="rounded-2xl bg-white p-4 text-left font-black text-navy shadow-card">
